@@ -3,6 +3,24 @@ const meta = std.meta;
 
 pub const TraitFn = fn (type) type;
 
+const TraitTypeTag = @typeInfo(std.builtin.TypeId).Enum.tag_type;
+const TraitTypeFields = @typeInfo(std.builtin.TypeId).Enum.fields;
+pub const TraitType = @Type(
+    std.builtin.Type{
+        .Enum = .{
+            .tag_type = TraitTypeTag,
+            .fields = TraitTypeFields ++ [1]std.builtin.Type.EnumField{
+                .{
+                    .name = "Any",
+                    .value = std.math.maxInt(TraitTypeTag)
+                },
+            },
+            .decls = &[0]std.builtin.Type.Declaration{},
+            .is_exhaustive = false,
+        }, 
+    }
+);
+
 pub fn impl(comptime Type: type, comptime Trait: TraitFn) void {
     const Interface = Trait(Type);
     const prelude = std.fmt.comptimePrint(
