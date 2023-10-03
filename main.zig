@@ -4,11 +4,11 @@ const trait = @import("trait.zig");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
+        pub const Count = trait.AssociatedType.Int;
+
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
         pub const read = fn (*Type) Type.Count;
-
-        pub const Count: trait.AssociatedType = .Int;
     };
 }
 
@@ -19,7 +19,7 @@ pub fn HasDimensions(comptime _: type) type {
     };
 }
 
-const MyType = struct {
+const MyCounter = struct {
     pub const Count = u32;
 
     count: Count,
@@ -37,7 +37,7 @@ const MyType = struct {
     }
 };
 
-const MyTypeMissingType = struct {
+const MyCounterMissingType = struct {
     count: u32,
 
     pub fn init() @This() {
@@ -53,7 +53,7 @@ const MyTypeMissingType = struct {
     }
 };
 
-const MyTypeMissingDecl = struct {
+const MyCounterMissingDecl = struct {
     pub const Count = u32;
 
     count: Count,
@@ -67,7 +67,7 @@ const MyTypeMissingDecl = struct {
     }
 };
 
-const MyTypeInvalidType = struct {
+const MyCounterInvalidType = struct {
     pub const Count = struct { n: u32 };
     count: Count,
 
@@ -84,7 +84,7 @@ const MyTypeInvalidType = struct {
     }
 };
 
-const MyTypeWrongFn = struct {
+const MyCounterWrongFn = struct {
     pub const Count = u32;
 
     count: Count,
@@ -102,7 +102,7 @@ const MyTypeWrongFn = struct {
     }
 };
 
-const MyTypeExpanded = struct {
+const MyCounterWithDimensions = struct {
     pub const Count = u32;
     pub const width = 640;
     pub const height = 480;
@@ -122,19 +122,19 @@ const MyTypeExpanded = struct {
     }
 };
 
-const MyUnion = union(enum) {
+const MyCounterUnion = union(enum) {
     pub const Count = u64;
 
     short: u32,
     long: u64,
 
     pub fn init() @This() {
-        return .{ .count = 0 };
+        return .{ .long = 0 };
     }
 
     pub fn increment(self: *@This()) void {
         switch (self.*) {
-            inline else => |*count| count += 1,
+            inline else => |*count| count.* += 1,
         }
     }
     
@@ -145,7 +145,7 @@ const MyUnion = union(enum) {
     }
 };
 
-const MyEnum = enum(u32) {
+const MyCounterEnum = enum(u32) {
     pub const Count = u32;
 
     red = 0,
@@ -155,37 +155,53 @@ const MyEnum = enum(u32) {
     _,
 
     pub fn init() @This() {
-        return .{ .count = 0 };
+        return .red;
     }
 
     pub fn increment(self: *@This()) void {
-        self.count += 1;
+        self.* = @enumFromInt(@intFromEnum(self.*) + 1);
     }
     
     pub fn read(self: *@This()) Count {
-        return self.count;
+        return @intFromEnum(self.*);
     }
 };
 
-pub fn area(comptime T: type) comptime_int {
-    trait.impl(T, HasDimensions);
+pub fn countToTen(comptime Counter: type) void {
+    comptime { trait.impl(Counter, Incrementable); }
+    var counter = Counter.init();
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+
+pub fn computeArea(comptime T: type) comptime_int {
+    comptime { trait.impl(T, HasDimensions); }
     return T.width * T.height;
+}
+
+pub fn computeAreaAndCount(comptime T: type) void {
+    comptime { trait.implAll(T, .{ Incrementable, HasDimensions }); }
+    var counter = T.init();
+    while (counter.read() < T.width * T.height) {
+        counter.increment();
+    }
 }
 
 pub fn main() void {
     // these should all succeed
-    trait.impl(MyType, Incrementable);
-    trait.impl(MyTypeExpanded, Incrementable);
-    trait.implAll(MyTypeExpanded, .{Incrementable, HasDimensions});
-    trait.impl(MyEnum, Incrementable);
-    trait.impl(MyUnion, Incrementable);
-    std.debug.print("{} area: {}\n", .{MyTypeExpanded, area(MyTypeExpanded)});
+    countToTen(MyCounter);
+    countToTen(MyCounterWithDimensions);
+    countToTen(MyCounterEnum);
+    countToTen(MyCounterUnion);
+    computeAreaAndCount(MyCounterWithDimensions);
+    _ = computeArea(MyCounterWithDimensions);
 
     // each of these should produce a compile error
-    trait.impl(MyTypeMissingType, Incrementable);
-    trait.impl(MyTypeMissingDecl, Incrementable);
-    trait.impl(MyTypeInvalidType, Incrementable);
-    trait.impl(MyTypeWrongFn, Incrementable);
-    trait.implAll(MyType, .{Incrementable, HasDimensions});
-    std.debug.print("{} area: {}\n", .{MyType, area(MyType)});
+    countToTen(MyCounterMissingType);
+    countToTen(MyCounterMissingDecl);
+    countToTen(MyCounterInvalidType);
+    countToTen(MyCounterWrongFn);
+    computeAreaAndCount(MyCounterEnum);
+    _ = computeArea(MyCounter);
 }

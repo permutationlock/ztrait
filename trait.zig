@@ -5,6 +5,8 @@ pub const TraitFn = fn (type) type;
 
 const TraitTypeTag = @typeInfo(std.builtin.TypeId).Enum.tag_type;
 const TraitTypeFields = @typeInfo(std.builtin.TypeId).Enum.fields;
+
+// build an enum type containing all builtin type tags and a .Any tag
 pub const AssociatedType = @Type(
     std.builtin.Type{
         .Enum = .{
@@ -44,7 +46,7 @@ pub fn impl(comptime Type: type, comptime Trait: TraitFn) void {
                     @typeInfo(type_fld)
                 )
             );
-            if (type_id != interface_fld) {
+            if (interface_fld != .Any and type_id != interface_fld) {
                 @compileError(std.fmt.comptimePrint(
                     "{s}: decl '{s}' expected TypeId '{}' but found '{}'",
                     .{
