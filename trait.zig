@@ -3,23 +3,7 @@ const meta = std.meta;
 
 pub const TraitFn = fn (type) type;
 
-const TraitTypeTag = @typeInfo(std.builtin.TypeId).Enum.tag_type;
-const TraitTypeFields = @typeInfo(std.builtin.TypeId).Enum.fields;
-pub const TraitType = @Type(
-    std.builtin.Type{
-        .Enum = .{
-            .tag_type = TraitTypeTag,
-            .fields = TraitTypeFields ++ [1]std.builtin.Type.EnumField{
-                .{
-                    .name = "Any",
-                    .value = std.math.maxInt(TraitTypeTag)
-                },
-            },
-            .decls = &[0]std.builtin.Type.Declaration{},
-            .is_exhaustive = false,
-        }, 
-    }
-);
+pub const AssociatedType = std.builtin.TypeId;
 
 pub fn impl(comptime Type: type, comptime Trait: TraitFn) void {
     const Interface = Trait(Type);
@@ -38,7 +22,20 @@ pub fn impl(comptime Type: type, comptime Trait: TraitFn) void {
     inline for (@typeInfo(Interface).Struct.decls) |decl| {
         const interface_fld = @field(Interface, decl.name);
         const type_fld = @field(Type, decl.name);
-        if (interface_fld != @TypeOf(type_fld)) {
+        if (@TypeOf(interface_fld) == std.builtin.TypeId) {
+            const type_id: std.builtin.TypeId = @typeInfo(type_fld);
+            if (type_id != interface_fld) {
+                @compileError(std.fmt.comptimePrint(
+                    "{s}: decl '{s}' expected TypeId '{}' but found '{}'",
+                    .{
+                        prelude,
+                        decl.name,
+                        interface_fld,
+                        type_id
+                    }
+                ));
+            }
+        } else if (interface_fld != @TypeOf(type_fld)) {
             @compileError(std.fmt.comptimePrint(
                 "{s}: decl '{s}' expected type '{}' but found '{}'",
                 .{

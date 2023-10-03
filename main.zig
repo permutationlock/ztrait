@@ -8,7 +8,7 @@ pub fn Incrementable(comptime Type: type) type {
         pub const increment = fn (*Type) void;
         pub const read = fn (*Type) Type.Count;
 
-        pub const Count = type;
+        pub const Count: trait.AssociatedType = .Int;
     };
 }
 
@@ -62,6 +62,23 @@ const MyTypeMissingDecl = struct {
         return .{ .count = 0 };
     }
  
+    pub fn read(self: *@This()) Count {
+        return self.count;
+    }
+};
+
+const MyTypeInvalidType = struct {
+    pub const Count = struct { n: u32 };
+    count: Count,
+
+    pub fn init() @This() {
+        return .{ .count = .{ .n = 0} };
+    }
+
+    pub fn increment(self: *@This()) void {
+        self.count.n += 1;
+    }
+    
     pub fn read(self: *@This()) Count {
         return self.count;
     }
@@ -167,6 +184,7 @@ pub fn main() void {
     // each of these should produce a compile error
     trait.impl(MyTypeMissingType, Incrementable);
     trait.impl(MyTypeMissingDecl, Incrementable);
+    trait.impl(MyTypeInvalidType, Incrementable);
     trait.impl(MyTypeWrongFn, Incrementable);
     trait.implAll(MyType, .{Incrementable, HasDimensions});
     std.debug.print("{} area: {}\n", .{MyType, area(MyType)});
