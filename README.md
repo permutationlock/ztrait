@@ -51,7 +51,10 @@ const MyCounter = struct {
 ```
 
 To require that a generic type parameter implenents a given trait you simply
-need to add a small `comptime` block at the start of the function.
+need to add a small `comptime` block at the start of the function (if you don't
+place it inside a comptime block, it will be evaluated later during compilation
+and you will get regular duck-typing errors rather than trait implementation
+errors).
 
 ```Zig
 const trait = @import("trait.zig");
