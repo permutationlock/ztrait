@@ -9,13 +9,15 @@ pub fn impl(comptime Type: type, comptime Trait: TraitFn) void {
         "'{}' fails to implement '{}'",
         .{ Type, Interface }
     );
+
+    // check decls exist before type checking to allow any definition order
     inline for (@typeInfo(Interface).Struct.decls) |decl| {
         if (!@hasDecl(Type, decl.name)) {
-            @compileError(std.fmt.comptimePrint(
-                "{s}: missing decl '{s}'",
-                .{ prelude, decl.name }
-            ));
+            @compileError(prelude ++ ": missing decl '" ++ decl.name ++ "'");
         }
+    }
+
+    inline for (@typeInfo(Interface).Struct.decls) |decl| {
         const interface_fld = @field(Interface, decl.name);
         const type_fld = @field(Type, decl.name);
         if (interface_fld != @TypeOf(type_fld)) {
