@@ -1,6 +1,12 @@
 # Zig Type Traits
 
-A simplified version of Rust style type traits for Zig.
+A simple version of Rust style type traits for Zig. Allows defining type traits
+and compile time verifying that types satisfy them.
+
+It does not constrain that every declaration referenced on a type
+must belong to a trait that was implemented. Thus
+this trait library mainly serves as a convention that provides nice error
+messages and type documentation for `comptime` generics.
 
 ## Example
 
@@ -94,4 +100,61 @@ trait.zig:36:13: error: 'main.MyCounterMissingDecl' fails to implement 'main.Inc
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 main.zig:171:26: note: called from here
     comptime { trait.impl(Counter, Incrementable); }
+```
+
+```Zig
+const MyCounterInvalidType = struct {
+    pub const Count = struct { n: u32 };
+    count: Count,
+
+    pub fn init() @This() {
+        return .{ .count = .{ .n = 0} };
+    }
+
+    pub fn increment(self: *@This()) void {
+        self.count.n += 1;
+    }
+    
+    pub fn read(self: *@This()) Count {
+        return self.count;
+    }
+};
+```
+
+```Shell
+trait.zig:50:17: error: 'main.MyCounterInvalidType' fails to implement 'main.Incrementable(main.MyCounterInvalidType)': decl 'Count' expected TypeId 'trait.AssociatedType.Int' but found 'trait.AssociatedType.Struct'
+                @compileError(std.fmt.comptimePrint(
+                ^~~~~~~~~~~~~
+main.zig:171:26: note: called from here
+    comptime { trait.impl(Counter, Incrementable); }
+               ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+```
+
+```Zig
+const MyCounterWrongFn = struct {
+    pub const Count = u32;
+
+    count: Count,
+
+    pub fn init() @This() {
+        return .{ .count = 0 };
+    }
+
+    pub fn increment(self: *@This(), amount: Count) void {
+        self.count += amount;
+    }
+    
+    pub fn read(self: *@This()) Count {
+        return self.count;
+    }
+};
+```
+
+```Shell
+trait.zig:61:13: error: 'main.MyCounterWrongFn' fails to implement 'main.Incrementable(main.MyCounterWrongFn)': decl 'increment' expected type 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
+            @compileError(std.fmt.comptimePrint(
+            ^~~~~~~~~~~~~
+main.zig:171:26: note: called from here
+    comptime { trait.impl(Counter, Incrementable); }
+               ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
 ```

@@ -189,19 +189,5 @@ pub fn computeAreaAndCount(comptime T: type) void {
 }
 
 pub fn main() void {
-    // these should all succeed
-    countToTen(MyCounter);
-    countToTen(MyCounterWithDimensions);
-    countToTen(MyCounterEnum);
-    countToTen(MyCounterUnion);
-    computeAreaAndCount(MyCounterWithDimensions);
-    _ = computeArea(MyCounterWithDimensions);
-
-    // each of these should produce a compile error
-    countToTen(MyCounterMissingType);
-    countToTen(MyCounterMissingDecl);
-    countToTen(MyCounterInvalidType);
     countToTen(MyCounterWrongFn);
-    computeAreaAndCount(MyCounterEnum);
-    _ = computeArea(MyCounter);
 }
