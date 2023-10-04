@@ -6,7 +6,7 @@ and compile time verifying that types satisfy them.
 It does not constrain that every declaration referenced on a type
 must belong to a trait that was implemented. Thus
 this trait library mainly serves as a convention that provides nice error
-messages and type documentation for `comptime` generics.
+messages and type documentation for comptime generics.
 
 ## Example
 
@@ -56,7 +56,7 @@ const MyCounter = struct {
 ```
 
 To require that a generic type parameter implenents a given trait you simply
-need to add a `comptime` verification block at the start of the function.
+need to add a comptime verification block at the start of the function.
 
 ```Zig
 const trait = @import("trait.zig");
@@ -71,7 +71,7 @@ pub fn countToTen(comptime Counter: type) void {
 }
 ```
 
-**Note:** If we don't place the trait verification inside a `comptime` block,
+**Note:** If we don't place the trait verification inside a comptime block,
 verification might be evaluated later during compilation which results in
 regular duck-typing errors rather than trait implementation errors.
 
