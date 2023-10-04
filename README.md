@@ -11,8 +11,12 @@ messages and type documentation for `comptime` generics.
 ## Example
 
 A trait is simply a comptime function taking a type and returning a struct.
-Below is a trait that requires implementing types to define a Count integer type
-and provide an `init` funciton as well as member functions `increment` and
+Each declaration of the returned struct defines a required declaration for any
+type that implements this trait. A special `AssociatedType` enum is defined to
+allow traits to declare and constrain associated types. 
+
+Below is a trait that requires implementing types to define a `Count` integer
+type and provide an `init` funciton as well as member functions `increment` and
 `decrement`.
 
 ```Zig
@@ -29,12 +33,7 @@ pub fn Incrementable(comptime Type: type) type {
 }
 ```
 
-Each declaration of the returned struct defines a required declaration for any
-type that implements this trait. A special `AssociatedType` enum is defined to
-allow traits to declare and constrain associated types. 
-
-An example type that implements the above `Incrementable` trait is provided
-below.
+A type that implements the above `Incrementable` trait is provided below.
 
 ```Zig
 const MyCounter = struct {
@@ -57,10 +56,7 @@ const MyCounter = struct {
 ```
 
 To require that a generic type parameter implenents a given trait you simply
-need to add a small `comptime` block at the start of the function (if you don't
-place it inside a comptime block, it will be evaluated later during compilation
-and you will get regular duck-typing errors rather than trait implementation
-errors).
+need to add a `comptime` verification block at the start of the function.
 
 ```Zig
 const trait = @import("trait.zig");
@@ -75,8 +71,12 @@ pub fn countToTen(comptime Counter: type) void {
 }
 ```
 
+**Note:** If we don't place the trait verification inside a `comptime` block,
+verification might be evaluated later during compilation which results in
+regular duck-typing errors rather than trait implementation errors.
+
 If we define a type that fails to implement the `Incrementable` trait and pass
-it to `countToTen` we get a nice compile error.
+it to `countToTen`, then `trait.impl` wwill produce a descriptive compile error.
 
 ```Zig
 const MyCounterMissingDecl = struct {
