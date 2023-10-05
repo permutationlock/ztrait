@@ -102,8 +102,8 @@ pub const Constraint = struct {
         inline for (self.traits) |trait| {
             const Interface = trait.*(Type);
             const prelude = std.fmt.comptimePrint(
-                "'{}' failed to implement '{}'",
-                .{ Type, Interface }
+                "trait '{}' failed",
+                .{ Interface }
             );
             inline for (@typeInfo(Interface).Struct.decls) |decl| {
                 if (!@hasDecl(Type, decl.name)) {

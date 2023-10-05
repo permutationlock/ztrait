@@ -95,7 +95,7 @@ const MyCounterMissingDecl = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: 'main.MyCounterMissingDecl' failed to implement 'main.Incrementable(main.MyCounterMissingDecl)': missing decl 'increment'
+trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterMissingDecl)' failed: missing decl 'increment'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
@@ -124,7 +124,7 @@ const MyCounterInvalidType = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: 'main.MyCounterInvalidType' failed to implement 'main.Incrementable(main.MyCounterInvalidType)': decl 'Count': expected 'trait.TypeId.Int' but found 'trait.TypeId.Struct'
+trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int' but found 'trait.TypeId.Struct'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
@@ -153,9 +153,12 @@ const MyCounterWrongFn = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: 'main.MyCounterWrongFn' failed to implement 'main.Incrementable(main.MyCounterWrongFn)': decl 'increment': expected 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
+trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterWrongFn)' failed: decl 'increment': expected 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
+main.zig:177:54: note: called from here
+    comptime { trait.implements(Incrementable).assert(Counter); }
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 We can even define a trait that requires implementing types to define a subtype
@@ -191,12 +194,12 @@ pub const InvalidCounterHolder = struct {
 ```
 
 ```Zig
-trait.zig:138:17: error: 'main.InvalidCounterHolder' failed to implement 'main.HasIncrementable(main.InvalidCounterHolder)': decl 'Counter': 'main.MyCounterMissingDecl' failed to implement 'main.Incrementable(main.MyCounterMissingDecl)': missing decl 'increment'
+trait.zig:138:17: error: trait 'main.HasIncrementable(main.InvalidCounterHolder)' failed: decl 'Counter': trait 'main.Incrementable(main.MyCounterMissingDecl)' failed: missing decl 'increment'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
-main.zig:201:50: note: called from here
-        trait.implements(HasIncrementable).assert(T);
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+main.zig:200:57: note: called from here
+    comptime { trait.implements(HasIncrementable).assert(T); }
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
 ```
 
 Hooray! We have successfully implemented C++ template type errors in Zig...
