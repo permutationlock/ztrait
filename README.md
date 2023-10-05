@@ -15,8 +15,8 @@ Each declaration of the returned struct defines a required declaration for any
 type that implements this trait. 
 
 Below is a trait that requires implementing types to define an integer subtype
-`Count`, provide an `init` funciton, and provide the member functions `increment
-and `read`.
+`Count`, provide an `init` funciton, and provide the member functions
+`increment` and `read`.
 
 ```Zig
 const trait = @import("trait.zig");
@@ -24,7 +24,7 @@ const trait = @import("trait.zig");
 pub fn Incrementable(comptime Type: type) type {
     return struct {
         // below is the same as `pub const Count = type` except that during
-        // trait verification it requires that '@typeOf(Type.Count) == .Int'
+        // trait verification it requires that '@typeInfo(Type.Count) == .Int'
         pub const Count = trait.is(.Int);
 
         pub const init = fn () Type;
@@ -159,7 +159,7 @@ trait.zig:138:17: error: 'main.MyCounterWrongFn' failed to implement 'main.Incre
 ```
 
 We can even define a trait that requires implementing types to define a subtype
-that is itself constrained bya trait.
+that is itself constrained by a trait.
 
 ```Zig
 pub fn HasIncrementable(comptime _: type) type {
@@ -172,9 +172,7 @@ pub fn HasIncrementable(comptime _: type) type {
 
 ```Zig
 pub fn useHolderToCountToTen(comptime T: type) void {
-    comptime {
-        trait.implements(HasIncrementable).assert(T);
-    }
+    comptime { trait.implements(HasIncrementable).assert(T); }
     var counter = T.Counter.init();
     while (counter.read() < 10) {
         counter.increment();

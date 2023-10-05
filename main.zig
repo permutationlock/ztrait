@@ -197,9 +197,7 @@ pub fn computeAreaAndCount(comptime T: type) void {
 }
 
 pub fn useHolderToCountToTen(comptime T: type) void {
-    comptime {
-        trait.implements(HasIncrementable).assert(T);
-    }
+    comptime { trait.implements(HasIncrementable).assert(T); }
     var counter = T.Counter.init();
     while (counter.read() < 10) {
         counter.increment();
