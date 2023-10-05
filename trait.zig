@@ -67,81 +67,49 @@ pub const AssociatedType = struct {
             return .{ .ids = self.ids, .traits = &traitArray };
         }
     }
+
+    pub fn check(comptime self: Self, comptime Type: type) void {
+        var type_match = false;
+        const type_id: TypeId = @enumFromInt(@intFromEnum(@typeInfo(Type)));
+        inline for (self.ids) |expected_id| {
+            if (type_id == expected_id) {
+                type_match = true;
+                break;
+            }
+        }
+        if (!type_match) {
+            if (self.ids.len == 1) {
+                @compileError(std.fmt.comptimePrint(
+                    "expected '{}' but found '{}'",
+                    .{ self.ids[0], type_id }
+                ));
+            } else if (self.ids.len > 1) {
+                @compileError(std.fmt.comptimePrint(
+                    "expected one of '{any}' but found '{}'",
+                    .{ self.ids, type_id }
+                ));
+            }
+        }
+        inline for (self.traits) |trait| {
+            const Interface = trait.*(Type);
+            inline for (@typeInfo(Interface).Struct.decls) |decl| {
+                if (!@hasDecl(Type, decl.name)) {
+                    @compileError("missing decl '" ++ decl.name ++ "'");
+                }
+            }
+            inline for (@typeInfo(Interface).Struct.decls) |decl| {
+                const FieldType = @field(Interface, decl.name);
+                const fld = @field(Type, decl.name);
+
+                if (FieldType == AssociatedType) {
+                    FieldType.check(@TypeOf(fld));
+                } else if (@TypeOf(fld) != FieldType) {
+                    @compileError(std.fmt.comptimePrint(
+                        "expected '{}' but found '{}'",
+                        .{ FieldType, @TypeOf(fld) }
+                    ));
+                }
+            }
+        }
+    }
 };
-
-pub fn impl(comptime T: type, comptime Trait: TraitFn) void {
-    const Interface = Trait(T);
-    const prelude = std.fmt.comptimePrint(
-        "'{}' fails to implement '{}'",
-        .{ T, Interface }
-    );
-
-    // check decls exist before type checking to allow any definition order
-    inline for (@typeInfo(Interface).Struct.decls) |decl| {
-        if (!@hasDecl(T, decl.name)) {
-            @compileError(prelude ++ ": missing decl '" ++ decl.name ++ "'");
-        }
-    }
-
-    inline for (@typeInfo(Interface).Struct.decls) |decl| {
-        const interface_fld = @field(Interface, decl.name);
-        const type_fld = @field(T, decl.name);
-        if (@TypeOf(interface_fld) == AssociatedType) {
-            var type_match = false;
-            const type_id: TypeId = @enumFromInt(
-                @intFromEnum(
-                    @typeInfo(type_fld)
-                )
-            );
-            for (interface_fld.ids) |expected_id| {
-                if (type_id == expected_id) {
-                    type_match = true;
-                    break;
-                }
-            }
-            if (!type_match) {
-                if (interface_fld.ids.len == 1) {
-                    @compileError(std.fmt.comptimePrint(
-                        "{s}: decl '{s}' expected '{}' but found '{}'",
-                        .{
-                            prelude,
-                            decl.name,
-                            interface_fld.ids[0],
-                            type_id
-                        }
-                    ));
-                } else if (interface_fld.ids.len > 1) {
-                    @compileError(std.fmt.comptimePrint(
-                        "{s}: decl '{s}' expected one of '{any}' but found '{}'",
-                        .{
-                            prelude,
-                            decl.name,
-                            interface_fld.ids,
-                            type_id
-                        }
-                    ));
-                }
-            }
-            for (interface_fld.traits) |traitFn| {
-                impl(type_fld, traitFn.*);
-            }
-        } else if (interface_fld != @TypeOf(type_fld)) {
-            @compileError(std.fmt.comptimePrint(
-                "{s}: decl '{s}' expected '{}' but found '{}'",
-                .{
-                    prelude,
-                    decl.name,
-                    interface_fld,
-                    @TypeOf(type_fld)
-                }
-            ));
-        }
-    }
-}
-
-pub fn implAll(comptime T: type, comptime traits: anytype) void {
-    inline for (@typeInfo(@TypeOf(traits)).Struct.fields) |fld| {
-        const traitFn = @field(traits, fld.name);
-        impl(T, traitFn);
-    }
-}

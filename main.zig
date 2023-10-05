@@ -21,9 +21,7 @@ pub fn HasDimensions(comptime _: type) type {
 
 pub fn HasIncrementable(comptime _: type) type {
     return struct {
-        pub const Counter = trait.associatedType()
-            .isOneOf(.{ .Struct, .Union })
-            .impl(Incrementable);
+        pub const Counter = trait.associatedType().impl(Incrementable);
     };
 }
 
@@ -176,7 +174,7 @@ const MyCounterEnum = enum(u32) {
 };
 
 pub fn countToTen(comptime Counter: type) void {
-    comptime { trait.impl(Counter, Incrementable); }
+    comptime { trait.associatedType().impl(Incrementable).check(Counter); }
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -184,12 +182,16 @@ pub fn countToTen(comptime Counter: type) void {
 }
 
 pub fn computeArea(comptime T: type) comptime_int {
-    comptime { trait.impl(T, HasDimensions); }
+    comptime { trait.associatedType().impl(HasDimensions).check(T); }
     return T.width * T.height;
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    comptime { trait.implAll(T, .{ Incrementable, HasDimensions }); }
+    comptime {
+        trait.associatedType()
+            .implAll(.{ Incrementable, HasDimensions })
+            .check(T);
+    }
     var counter = T.init();
     while (counter.read() < T.width * T.height) {
         counter.increment();
@@ -221,7 +223,7 @@ pub fn main() void {
     computeAreaAndCount(MyCounterEnum);
     _ = computeArea(MyCounter);
     
-    comptime { trait.impl(CounterHolder, HasIncrementable); }
-    comptime { trait.impl(MyCounter, HasIncrementable); }
-    comptime { trait.impl(InvalidCounterHolder, HasIncrementable); }
+    trait.associatedType().impl(HasIncrementable).check(CounterHolder);
+    trait.associatedType().impl(HasIncrementable).check(MyCounter);
+    trait.associatedType().impl(HasIncrementable).check(InvalidCounterHolder);
 }
