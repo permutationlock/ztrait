@@ -4,7 +4,7 @@ const trait = @import("trait.zig");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
-        pub const Count = trait.associatedType().is(.Int);
+        pub const Count = trait.is(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -21,7 +21,7 @@ pub fn HasDimensions(comptime _: type) type {
 
 pub fn HasIncrementable(comptime _: type) type {
     return struct {
-        pub const Counter = trait.associatedType().impl(Incrementable);
+        pub const Counter = trait.implements(Incrementable);
     };
 }
 
@@ -174,7 +174,7 @@ const MyCounterEnum = enum(u32) {
 };
 
 pub fn countToTen(comptime Counter: type) void {
-    comptime { trait.associatedType().impl(Incrementable).check(Counter); }
+    comptime { trait.implements(Incrementable).assert(Counter); }
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -182,18 +182,26 @@ pub fn countToTen(comptime Counter: type) void {
 }
 
 pub fn computeArea(comptime T: type) comptime_int {
-    comptime { trait.associatedType().impl(HasDimensions).check(T); }
+    comptime { trait.implements(HasDimensions).assert(T); }
     return T.width * T.height;
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
     comptime {
-        trait.associatedType()
-            .implAll(.{ Incrementable, HasDimensions })
-            .check(T);
+        trait.implementsAll(.{ Incrementable, HasDimensions }).assert(T);
     }
     var counter = T.init();
     while (counter.read() < T.width * T.height) {
+        counter.increment();
+    }
+}
+
+pub fn useHolderToCountToTen(comptime T: type) void {
+    comptime {
+        trait.implements(HasIncrementable).assert(T);
+    }
+    var counter = T.Counter.init();
+    while (counter.read() < 10) {
         counter.increment();
     }
 }
@@ -207,12 +215,13 @@ pub const InvalidCounterHolder = struct {
 };
 
 pub fn main() void {
-    // these should all succeed
+    // these should all silently work without errors
     countToTen(MyCounter);
     countToTen(MyCounterWithDimensions);
     countToTen(MyCounterEnum);
     countToTen(MyCounterUnion);
     computeAreaAndCount(MyCounterWithDimensions);
+    useHolderToCountToTen(CounterHolder);
     _ = computeArea(MyCounterWithDimensions);
 
     // each of these should produce a compile error
@@ -221,9 +230,7 @@ pub fn main() void {
     countToTen(MyCounterInvalidType);
     countToTen(MyCounterWrongFn);
     computeAreaAndCount(MyCounterEnum);
-    _ = computeArea(MyCounter);
-    
-    trait.associatedType().impl(HasIncrementable).check(CounterHolder);
-    trait.associatedType().impl(HasIncrementable).check(MyCounter);
-    trait.associatedType().impl(HasIncrementable).check(InvalidCounterHolder);
+    useHolderToCountToTen(MyCounter);
+    useHolderToCountToTen(InvalidCounterHolder);
+    _ = computeArea(MyCounter);    
 }

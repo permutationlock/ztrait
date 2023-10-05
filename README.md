@@ -12,19 +12,20 @@ messages and type documentation for comptime generics.
 
 A trait is simply a comptime function taking a type and returning a struct.
 Each declaration of the returned struct defines a required declaration for any
-type that implements this trait. A special `AssociatedType` enum is defined to
-allow traits to declare and constrain associated types. 
+type that implements this trait. 
 
-Below is a trait that requires implementing types to define a `Count` integer
-type and provide an `init` funciton as well as member functions `increment` and
-`decrement`.
+Below is a trait that requires implementing types to define an integer subtype
+`Count`, provide an `init` funciton, and provide the member functions `increment
+and `read`.
 
 ```Zig
 const trait = @import("trait.zig");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
-        pub const Count = trait.AssociatedType.Int;
+        // below is the same as `pub const Count = type` except that during
+        // trait verification it requires that '@typeOf(Type.Count) == .Int'
+        pub const Count = trait.is(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -62,8 +63,7 @@ need to add a comptime verification block at the start of the function.
 const trait = @import("trait.zig");
 
 pub fn countToTen(comptime Counter: type) void {
-    comptime { trait.impl(Counter, Incrementable); }
-
+    comptime { trait.implements(Incrementable).assert(Counter); }
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -71,8 +71,8 @@ pub fn countToTen(comptime Counter: type) void {
 }
 ```
 
-**Note:** If we don't place the trait verification inside a comptime block,
-verification might be evaluated later during compilation which results in
+**Note:** If we don't place the trait verification inside a comptime block then
+verification might be evaluated later during compilation. This results in
 regular duck-typing errors rather than trait implementation errors.
 
 If we define a type that fails to implement the `Incrementable` trait and pass
@@ -95,11 +95,12 @@ const MyCounterMissingDecl = struct {
 ```
 
 ```Shell
-trait.zig:36:13: error: 'main.MyCounterMissingDecl' fails to implement 'main.Incrementable(main.MyCounterMissingDecl)': missing decl 'increment'
-            @compileError(prelude ++ ": missing decl '" ++ decl.name ++ "'");
-            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-main.zig:171:26: note: called from here
-    comptime { trait.impl(Counter, Incrementable); }
+trait.zig:138:17: error: 'main.MyCounterMissingDecl' failed to implement 'main.Incrementable(main.MyCounterMissingDecl)': missing decl 'increment'
+                @compileError(reason);
+                ^~~~~~~~~~~~~~~~~~~~~
+main.zig:177:54: note: called from here
+    comptime { trait.implements(Incrementable).assert(Counter); }
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 ```Zig
@@ -123,12 +124,12 @@ const MyCounterInvalidType = struct {
 ```
 
 ```Shell
-trait.zig:50:17: error: 'main.MyCounterInvalidType' fails to implement 'main.Incrementable(main.MyCounterInvalidType)': decl 'Count' expected TypeId 'trait.AssociatedType.Int' but found 'trait.AssociatedType.Struct'
-                @compileError(std.fmt.comptimePrint(
-                ^~~~~~~~~~~~~
-main.zig:171:26: note: called from here
-    comptime { trait.impl(Counter, Incrementable); }
-               ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+trait.zig:138:17: error: 'main.MyCounterInvalidType' failed to implement 'main.Incrementable(main.MyCounterInvalidType)': decl 'Count': expected 'trait.TypeId.Int' but found 'trait.TypeId.Struct'
+                @compileError(reason);
+                ^~~~~~~~~~~~~~~~~~~~~
+main.zig:177:54: note: called from here
+    comptime { trait.implements(Incrementable).assert(Counter); }
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 ```Zig
@@ -152,10 +153,52 @@ const MyCounterWrongFn = struct {
 ```
 
 ```Shell
-trait.zig:61:13: error: 'main.MyCounterWrongFn' fails to implement 'main.Incrementable(main.MyCounterWrongFn)': decl 'increment' expected type 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
-            @compileError(std.fmt.comptimePrint(
-            ^~~~~~~~~~~~~
-main.zig:171:26: note: called from here
-    comptime { trait.impl(Counter, Incrementable); }
-               ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+trait.zig:138:17: error: 'main.MyCounterWrongFn' failed to implement 'main.Incrementable(main.MyCounterWrongFn)': decl 'increment': expected 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
+                @compileError(reason);
+                ^~~~~~~~~~~~~~~~~~~~~
 ```
+
+We can even define a trait that requires implementing types to define a subtype
+that is itself constrained bya trait.
+
+```Zig
+pub fn HasIncrementable(comptime _: type) type {
+    return struct {
+        pub const Counter = trait.implements(Incrementable);
+    };
+}
+
+```
+
+```Zig
+pub fn useHolderToCountToTen(comptime T: type) void {
+    comptime {
+        trait.implements(HasIncrementable).assert(T);
+    }
+    var counter = T.Counter.init();
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+```Zig
+pub const CounterHolder = struct {
+    pub const Counter = MyCounter;
+};
+
+pub const InvalidCounterHolder = struct {
+    pub const Counter = MyCounterMissingDecl;
+};
+```
+
+```Zig
+trait.zig:138:17: error: 'main.InvalidCounterHolder' failed to implement 'main.HasIncrementable(main.InvalidCounterHolder)': decl 'Counter': 'main.MyCounterMissingDecl' failed to implement 'main.Incrementable(main.MyCounterMissingDecl)': missing decl 'increment'
+                @compileError(reason);
+                ^~~~~~~~~~~~~~~~~~~~~
+main.zig:201:50: note: called from here
+        trait.implements(HasIncrementable).assert(T);
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+```
+
+Hooray! We have successfully implemented C++ template type errors in Zig...
