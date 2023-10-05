@@ -193,7 +193,7 @@ pub const InvalidCounterHolder = struct {
 };
 ```
 
-```Zig
+```Shell
 trait.zig:138:17: error: trait 'main.HasIncrementable(main.InvalidCounterHolder)' failed: decl 'Counter': trait 'main.Incrementable(main.MyCounterMissingDecl)' failed: missing decl 'increment'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
