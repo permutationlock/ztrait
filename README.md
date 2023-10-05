@@ -76,7 +76,7 @@ verification might be evaluated later during compilation which results in
 regular duck-typing errors rather than trait implementation errors.
 
 If we define a type that fails to implement the `Incrementable` trait and pass
-it to `countToTen`, then `trait.impl` wwill produce a descriptive compile error.
+it to `countToTen`, then `trait.impl` will produce a descriptive compile error.
 
 ```Zig
 const MyCounterMissingDecl = struct {
@@ -105,6 +105,7 @@ main.zig:171:26: note: called from here
 ```Zig
 const MyCounterInvalidType = struct {
     pub const Count = struct { n: u32 };
+
     count: Count,
 
     pub fn init() @This() {

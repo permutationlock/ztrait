@@ -4,7 +4,7 @@ const trait = @import("trait.zig");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
-        pub const Count = trait.AssociatedType.Int;
+        pub const Count = trait.associatedType().is(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -16,6 +16,14 @@ pub fn HasDimensions(comptime _: type) type {
     return struct {
         pub const width = comptime_int;
         pub const height = comptime_int;
+    };
+}
+
+pub fn HasIncrementable(comptime _: type) type {
+    return struct {
+        pub const Counter = trait.associatedType()
+            .isOneOf(.{ .Struct, .Union })
+            .impl(Incrementable);
     };
 }
 
@@ -188,6 +196,32 @@ pub fn computeAreaAndCount(comptime T: type) void {
     }
 }
 
+pub const CounterHolder = struct {
+    pub const Counter = MyCounter;
+};
+
+pub const InvalidCounterHolder = struct {
+    pub const Counter = MyCounterMissingDecl;
+};
+
 pub fn main() void {
+    // these should all succeed
+    countToTen(MyCounter);
+    countToTen(MyCounterWithDimensions);
+    countToTen(MyCounterEnum);
+    countToTen(MyCounterUnion);
+    computeAreaAndCount(MyCounterWithDimensions);
+    _ = computeArea(MyCounterWithDimensions);
+
+    // each of these should produce a compile error
+    countToTen(MyCounterMissingType);
+    countToTen(MyCounterMissingDecl);
+    countToTen(MyCounterInvalidType);
     countToTen(MyCounterWrongFn);
+    computeAreaAndCount(MyCounterEnum);
+    _ = computeArea(MyCounter);
+    
+    comptime { trait.impl(CounterHolder, HasIncrementable); }
+    comptime { trait.impl(MyCounter, HasIncrementable); }
+    comptime { trait.impl(InvalidCounterHolder, HasIncrementable); }
 }
