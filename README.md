@@ -201,5 +201,3 @@ main.zig:200:57: note: called from here
     comptime { trait.implements(HasIncrementable).assert(T); }
                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
 ```
-
-Hooray! We have successfully implemented C++ template type errors in Zig...
