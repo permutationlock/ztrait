@@ -89,12 +89,12 @@ pub const Constraint = struct {
         if (!type_match) {
             if (self.ids.len == 1) {
                 return std.fmt.comptimePrint(
-                    "expected '{}' but found '{}'",
+                    "expected '{}', found '{}'",
                     .{ self.ids[0], type_id }
                 );
             } else if (self.ids.len > 1) {
                 return std.fmt.comptimePrint(
-                    "expected one of '{any}' but found '{}'",
+                    "expected one of '{any}', found '{}'",
                     .{ self.ids, type_id }
                 );
             }
@@ -123,7 +123,7 @@ pub const Constraint = struct {
                     }
                 } else if (@TypeOf(fld) != FieldType) {
                     return std.fmt.comptimePrint(
-                        "{s}: decl '{s}': expected '{}' but found '{}'",
+                        "{s}: decl '{s}': expected '{}', found '{}'",
                         .{ prelude, decl.name, FieldType, @TypeOf(fld) }
                     );
                 }
