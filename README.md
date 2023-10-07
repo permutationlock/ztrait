@@ -1,21 +1,21 @@
 # Zig Type Traits
 
-A simple version of Rust style type traits for Zig. Allows defining type traits
-and compile time verifying that types satisfy them.
+A simple version of Rust style type traits for Zig. Allows defining traits
+and compile-time verifying that types satisfy them.
 
-It does not constrain that every declaration referenced on a type
-must belong to a trait that was implemented. Thus
-this trait library mainly serves as a convention that provides nice error
-messages and type documentation for comptime generics.
+**Note:** Nothing is done to require that every declaration referenced on a type
+must belong to a trait that was implemented. In other words, duck-typing still
+works as usual, but trait verification runs first. Therefure the library mainly
+serves as a convention that provides nice error messages and type documentation.
 
-## Example
+## Basic use
 
 A trait is simply a comptime function taking a type and returning a struct.
-Each declaration of the returned struct defines a required declaration for any
-type that implements this trait. 
+Each declaration of the returned struct defines a required declaration that the
+type must have if it implements the trait. 
 
-Below is a trait that requires implementing types to define an integer subtype
-`Count`, provide an `init` funciton, and provide the member functions
+Below is a trait that requires implementing types to define an integer
+sub-type `Count`, define an `init` funciton, and define member functions
 `increment` and `read`.
 
 ```Zig
@@ -124,7 +124,7 @@ const MyCounterInvalidType = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int' but found 'trait.TypeId.Struct'
+trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int', found 'trait.TypeId.Struct'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
@@ -153,7 +153,7 @@ const MyCounterWrongFn = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterWrongFn)' failed: decl 'increment': expected 'fn(*main.MyCounterWrongFn) void' but found 'fn(*main.MyCounterWrongFn, u32) void'
+trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterWrongFn)' failed: decl 'increment': expected 'fn(*main.MyCounterWrongFn) void', found 'fn(*main.MyCounterWrongFn, u32) void'
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
@@ -161,7 +161,9 @@ main.zig:177:54: note: called from here
                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
-We can even define a trait that requires implementing types to define a subtype
+## Recursion
+
+Traits can require that each implementing type defines a subtype
 that is itself constrained by a trait.
 
 ```Zig
@@ -201,3 +203,28 @@ main.zig:200:57: note: called from here
     comptime { trait.implements(HasIncrementable).assert(T); }
                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
 ```
+
+## Verifying that a type implements a trait in its definition
+
+Alongside enforcing trait implementation in generic functions, types can
+call assert directly in their definition to declare that they implement a given
+trait.
+
+```Zig
+const MyCounter = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
+    // ...
+};
+```
+
+Then with `testing.refAllDecls` you can run `zig test` to automatically verify
+that these traits are implemented.
+
+```Zig
+test {
+    std.testing.refAllDecls(@This);
+}
+```
+
+Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
