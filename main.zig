@@ -26,6 +26,8 @@ pub fn HasIncrementable(comptime _: type) type {
 }
 
 const MyCounter = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = u32;
 
     count: Count,
@@ -44,6 +46,8 @@ const MyCounter = struct {
 };
 
 const MyCounterMissingType = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     count: u32,
 
     pub fn init() @This() {
@@ -60,6 +64,8 @@ const MyCounterMissingType = struct {
 };
 
 const MyCounterMissingDecl = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = u32;
 
     count: Count,
@@ -74,6 +80,8 @@ const MyCounterMissingDecl = struct {
 };
 
 const MyCounterInvalidType = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = struct { n: u32 };
     count: Count,
 
@@ -91,6 +99,8 @@ const MyCounterInvalidType = struct {
 };
 
 const MyCounterWrongFn = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = u32;
 
     count: Count,
@@ -109,6 +119,9 @@ const MyCounterWrongFn = struct {
 };
 
 const MyCounterWithDimensions = struct {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+    comptime { trait.implements(HasDimensions).assert(@This()); }
+
     pub const Count = u32;
     pub const width = 640;
     pub const height = 480;
@@ -129,6 +142,8 @@ const MyCounterWithDimensions = struct {
 };
 
 const MyCounterUnion = union(enum) {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = u64;
 
     short: u32,
@@ -152,6 +167,8 @@ const MyCounterUnion = union(enum) {
 };
 
 const MyCounterEnum = enum(u32) {
+    comptime { trait.implements(Incrementable).assert(@This()); }
+
     pub const Count = u32;
 
     red = 0,
@@ -205,10 +222,14 @@ pub fn useHolderToCountToTen(comptime T: type) void {
 }
 
 pub const CounterHolder = struct {
+    comptime { trait.implements(HasIncrementable).assert(@This()); }
+
     pub const Counter = MyCounter;
 };
 
 pub const InvalidCounterHolder = struct {
+    comptime { trait.implements(HasIncrementable).assert(@This()); }
+
     pub const Counter = MyCounterMissingDecl;
 };
 
@@ -231,4 +252,8 @@ pub fn main() void {
     useHolderToCountToTen(MyCounter);
     useHolderToCountToTen(InvalidCounterHolder);
     _ = computeArea(MyCounter);    
+}
+
+test {
+    std.testing.refAllDecls(@This());
 }
