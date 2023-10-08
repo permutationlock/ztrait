@@ -16,6 +16,40 @@ pub const TypeId = @Type(
     }
 );
 
+pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
+    return ReturnType;
+}
+
+pub fn where(comptime Type: type) Where {
+    return .{ .Type = Type };
+}
+
+pub const Where = struct {
+    const Self = @This();
+
+    Type: type,
+
+    pub fn is(comptime self: Self, comptime id: TypeId) Self {
+        any().is(id).assert(self.Type);
+        return self;
+    }
+
+    pub fn isOneOf(comptime self: Self, comptime ids: anytype) Self {
+        any().isOneOf(ids).assert(self.Type);
+        return self;
+    }
+
+    pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
+        any().implements(trait).assert(self.Type);
+        return self;
+    }
+
+    pub fn implementsAll(comptime self: Self, comptime traits: anytype) Self {
+        any().implementsAll(traits).assert(self.Type);
+        return self;
+    }
+};
+
 pub fn any() Constraint { return .{}; }
 
 pub fn is(comptime id: TypeId) Constraint {

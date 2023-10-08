@@ -228,3 +228,44 @@ test {
 ```
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
+
+## Traits in function definitions: 'where' syntax
+
+Sometimes it can be useful to have type signatures directly in function
+definitions. Zig currently does not support that, but with a few hacks we can
+accomplish a janky version of Rust's `where` syntax.
+
+```Zig
+pub fn countToTen(comptime Counter: type) Returns(void,
+    where(Counter).implements(Incrementable)
+) {
+    var counter = Counter.init();
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+The first parameter of `Returns` is the return type of the function, while the
+second is an unreferenced `anytype` parameter allowing us to put type
+verification here. The `where` syntax is just a wrapper around the regular
+`assert` API for readability.
+
+Multiple types can be verified as well, but must be wrapped in a tuple
+constructor.
+
+```Zig
+pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
+    where(T).implements(Incrementable),
+    where(U).implements(Incrementable)
+}) {
+    var counter1 = T.init();
+    while (counter1.read() < 10) {
+        var counter2 = U.init();
+        while (counter2.read() < 10) {
+            counter2.increment();
+        }
+        counter1.increment();
+    }
+}
+```
