@@ -5,7 +5,7 @@ const where = trait.where;
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
-        pub const Count = trait.is(.Int);
+        pub const Count = trait.hasTypeId(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -49,7 +49,7 @@ const MyCounterWrongFn = struct {
     }
 };
 
-pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
+pub fn countWithBoth(comptime T: type, comptime U: type) Returns(void, .{
     where(T).implements(Incrementable),
     where(U).implements(Incrementable)
 }) {
@@ -63,6 +63,19 @@ pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
     }
 }
 
+pub fn countToTen(ctrs: anytype) Returns(void, .{
+    where(@TypeOf(ctrs)).hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
+        .child().implements(Incrementable)
+}) {
+    for (ctrs) |*ctr| {
+        while (ctr.read() < 10) {
+            ctr.increment();
+        }
+    }
+}
+
 pub fn main() void {
-    countToTen(MyCounter, MyCounterWrongFn);
+    var counters = [2]MyCounter{ MyCounter.init(), MyCounter.init() };
+    //var slice: []MyCounter = counters[0..];
+    countToTen(counters[0..]);
 }

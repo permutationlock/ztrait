@@ -8,7 +8,7 @@ pub const TraitFn = fn (type) type;
 pub const TypeId = @Type(
     std.builtin.Type{
         .Enum = .{
-            .tag_type = u64,
+            .tag_type = @typeInfo(std.builtin.TypeId).Enum.tag_type,
             .fields = @typeInfo(std.builtin.TypeId).Enum.fields,
             .decls = &[0]std.builtin.Type.Declaration{},
             .is_exhaustive = false,
@@ -16,48 +16,149 @@ pub const TypeId = @Type(
     }
 );
 
+// Construct a new union type TypeInfo based on std.builtin.Type such that
+// each field std.buitlin.Type has a corresponding field in TypeInfo of type
+// struct containing an optional version of all subfields other than 'fields'
+// and 'decls'.
+// The idea is to create a type that can be used to optionally constrain
+// metadata for a generic type of a given TypeId
+pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
+    .layout = @typeInfo(std.builtin.Type).Union.layout,
+    .tag_type = TypeId,
+    .fields = init: {
+        const og_uflds = @typeInfo(std.builtin.Type).Union.fields;
+        var uflds: [og_uflds.len]std.builtin.Type.UnionField = undefined;
+        inline for (&uflds, og_uflds) |*ufld, og_ufld| {
+            const type_info = @typeInfo(og_ufld.type);
+            if (type_info == .Struct) {
+                const struct_info = type_info.Struct;
+                ufld.*.type = @Type(std.builtin.Type{ .Struct = .{
+                    .layout = struct_info.layout,
+                    .backing_integer = struct_info.backing_integer,
+                    .decls = &[0]std.builtin.Type.Declaration{},
+                    .is_tuple = struct_info.is_tuple,
+                    .fields = sinit: {
+                        var og_sflds  = struct_info.fields;
+                        var sflds: [og_sflds.len]std.builtin.Type.StructField
+                            = undefined;
+                        var i: usize = 0;
+                        inline for (og_sflds) |fld| {
+                            if (std.mem.eql(u8, fld.name, "fields")
+                                or std.mem.eql(u8, fld.name, "decls")
+                            ) {
+                                continue;
+                            }
+                            sflds[i] = fld;
+                            sflds[i].type = @Type(std.builtin.Type{
+                                .Optional = .{
+                                    .child = fld.type,
+                                },
+                            });
+                            sflds[i].default_value = @ptrCast(
+                                &@as(?fld.type, null)
+                            );
+                            i += 1;
+                        }
+                        break :sinit sflds[0..i];
+                    },
+                }});
+            } else {
+                ufld.*.type = struct {};
+            }
+            ufld.*.name = og_ufld.name;
+            ufld.*.alignment = og_ufld.alignment;
+        }
+        break :init &uflds;
+    },
+    .decls = &[0]std.builtin.Type.Declaration{},
+}});
+
+fn getTypeFieldName(comptime id: TypeId) []const u8 {
+    comptime {
+        return @typeInfo(TypeInfo).Union.fields[@intFromEnum(id)].name;
+    }
+}
+
 pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
     return ReturnType;
 }
 
-pub fn where(comptime Type: type) Where {
-    return .{ .Type = Type };
+pub fn where(comptime T: anytype) Where(T) {
+    switch (@typeInfo(@TypeOf(T))) {
+        .Type => return .{ .Type = T },
+        inline else => return .{ .value = T },
+    }
 }
 
-pub const Where = struct {
-    const Self = @This();
+fn Where(comptime T: type) type {
+    switch (@typeInfo(@TypeOf(T))) {
+        .Type => return struct {
+            const Self = @This();
 
-    Type: type,
+            Type: type,
 
-    pub fn is(comptime self: Self, comptime id: TypeId) Self {
-        any().is(id).assert(self.Type);
-        return self;
+            pub fn child(comptime self: Self) Self {
+                const type_info = @typeInfo(self.Type);
+                const type_id: TypeId = @enumFromInt(@intFromEnum(type_info)); 
+                const type_name = getTypeFieldName(type_id);
+                const spec_info = @field(type_info, type_name);
+                if (!@hasField(@TypeOf(spec_info), "child")) {
+                    return std.fmt.comptimePrint(
+                        "'@typeInfo({}).{s}' has no field 'child'",
+                        .{ T, type_name }
+                    );
+                }
+
+                return .{ .Type = spec_info.child };
+            }
+
+            pub fn hasTypeId(comptime self: Self, comptime id: TypeId) Self {
+                any().hasTypeId(id).assert(self.Type);
+                return self;
+            }
+
+            pub fn hasTypeInfo(comptime self: Self, comptime info: TypeInfo) Self {
+                any().hasTypeInfo(info).assert(self.Type);
+                return self;
+            }
+
+            pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
+                any().implements(trait).assert(self.Type);
+                return self;
+            }
+
+            pub fn implementsAll(
+                comptime self: Self, comptime traits: anytype
+            ) Self {
+                any().implementsAll(traits).assert(self.Type);
+                return self;
+            }
+        },
+        else => return struct {
+            const Self = @This();
+
+            value: T,
+
+            pub fn is(comptime self: Self, comptime expected: T) void {
+                if (self.value != expected) {
+                    @compileError(std.fmt.comptimePrint(
+                        "expected '{any}', found '{any}'",
+                        .{ expected, self.value }
+                    ));
+                }
+            }
+        },
     }
-
-    pub fn isOneOf(comptime self: Self, comptime ids: anytype) Self {
-        any().isOneOf(ids).assert(self.Type);
-        return self;
-    }
-
-    pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
-        any().implements(trait).assert(self.Type);
-        return self;
-    }
-
-    pub fn implementsAll(comptime self: Self, comptime traits: anytype) Self {
-        any().implementsAll(traits).assert(self.Type);
-        return self;
-    }
-};
+}
 
 pub fn any() Constraint { return .{}; }
 
-pub fn is(comptime id: TypeId) Constraint {
-    return any().is(id);
+pub fn hasTypeId(comptime id: TypeId) Constraint {
+    return any().hasTypeId(id);
 }
 
-pub fn isOneOf(comptime ids: anytype) Constraint {
-    return any().isOneOf(ids);
+pub fn hasTypeInfo(comptime info: TypeInfo) Constraint {
+    return any().hasTypeInfo(info);
 }
 
 pub fn implements(comptime trait: TraitFn) Constraint {
@@ -68,27 +169,35 @@ pub fn implementsAll(comptime traits: anytype) Constraint {
     return any().implementsAll(traits);
 }
 
+pub fn hasChild(comptime constraint: Constraint) Constraint {
+    return any().hasChild(constraint);
+}
+
 pub const Constraint = struct {
     const Self = @This();
 
-    ids: []const TypeId = &[0]TypeId{},
+    child: ?*const Constraint = null,
+    info: ?TypeInfo = null,
     traits: []const *const TraitFn = &[0]*const TraitFn{},
 
-    pub fn is(comptime self: Self, comptime id: TypeId) Self {
-        return self.isOneOf(.{ id });
+    pub fn hasTypeId(comptime self: Self, comptime id: TypeId) Self {
+        return .{
+            .child = self.child,
+            .info = @unionInit(TypeInfo, getTypeFieldName(id), .{}),
+            .traits = self.traits
+        };
     }
 
-    pub fn isOneOf(comptime self: Self, comptime ids: anytype) Self {
-        const fields = @typeInfo(@TypeOf(ids)).Struct.fields;
+    pub fn hasTypeInfo(comptime self: Self, comptime info: TypeInfo) Self {
+        return .{ .child = self.child, .info = info, .traits = self.traits };
+    }
+
+    pub fn hasChild(comptime self: Self, comptime sub_contract: Self) Self {
         comptime {
-            var idArray: [self.ids.len + fields.len]TypeId = undefined;
-            inline for (fields, idArray[0..fields.len]) |fld, *id| {
-                id.* = @field(ids, fld.name);
-            }
-            inline for (self.ids, idArray[fields.len..]) |i, *id| {
-                id.* = i;
-            }
-            return .{ .ids = &idArray, .traits = self.traits };
+            const child_contract = sub_contract;
+            var contract = self;
+            contract.child = &child_contract;
+            return contract;
         }
     }
 
@@ -107,29 +216,52 @@ pub const Constraint = struct {
             inline for (self.traits, traitArray[fields.len..]) |t, *traitFn| {
                 traitFn.* = t;
             }
-            return .{ .ids = self.ids, .traits = &traitArray };
+            var contract = self;
+            contract.traits = &traitArray;
+            return contract;
         }
     }
 
     pub fn check(comptime self: Self, comptime Type: type) ?[]const u8 {
-        var type_match = false;
-        const type_id: TypeId = @enumFromInt(@intFromEnum(@typeInfo(Type)));
-        inline for (self.ids) |expected_id| {
-            if (type_id == expected_id) {
-                type_match = true;
-                break;
-            }
-        }
-        if (!type_match) {
-            if (self.ids.len == 1) {
+        const type_info = @typeInfo(Type);
+        const type_id: TypeId = @enumFromInt(@intFromEnum(type_info)); 
+        const type_name = getTypeFieldName(type_id);
+        const spec_info = @field(type_info, type_name);
+        if (self.info) |exp_info| {
+            const exp_id: TypeId = exp_info;
+            if (exp_id != type_id) {
                 return std.fmt.comptimePrint(
                     "expected '{}', found '{}'",
-                    .{ self.ids[0], type_id }
+                    .{ exp_id, type_id }
                 );
-            } else if (self.ids.len > 1) {
+            }
+            const exp = @field(exp_info, type_name);
+            const exp_fields = @typeInfo(@TypeOf(exp)).Struct.fields;
+            inline for (exp_fields) |fld_info| {
+                const maybe_exp_fld = @field(exp, fld_info.name);
+                if (maybe_exp_fld) |exp_fld| {
+                    const act_fld = @field(spec_info, fld_info.name);
+                    if (exp_fld != act_fld) {
+                        return std.fmt.comptimePrint(
+                            "unexpected value for '@typeInfo({}).{s}.{s}': "
+                                ++ "expected '{}', found '{}'",
+                            .{
+                                Type,
+                                type_name,
+                                fld_info.name,
+                                exp_fld,
+                                act_fld
+                            }
+                        );
+                    }
+                }
+            }
+        }
+        if (self.traits.len > 0) {
+            if (!@hasField(@TypeOf(spec_info), "decls")) {
                 return std.fmt.comptimePrint(
-                    "expected one of '{any}', found '{}'",
-                    .{ self.ids, type_id }
+                    "'@typeInfo({}).{s}' has no field 'decls'",
+                    .{ Type, type_name }
                 );
             }
         }
@@ -163,6 +295,20 @@ pub const Constraint = struct {
                 }
             }
         }
+
+        if (self.child) |child_contract| {
+            if (@hasField(@TypeOf(spec_info), "child")) {
+                if (child_contract.*.check(spec_info.child)) |reason| {
+                    return reason;
+                }
+            } else {
+                return std.fmt.comptimePrint(
+                    "'@typeInfo({}).{s}' has no field 'child'",
+                    .{ Type, type_name }
+                );
+            }
+        }
+
         return null;
     }
 

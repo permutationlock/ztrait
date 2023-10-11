@@ -233,6 +233,14 @@ pub const InvalidCounterHolder = struct {
     pub const Counter = MyCounterMissingDecl;
 };
 
+pub const referenceCountToTen(counter: anytype) void {
+    comptime {
+        trait.is(.OnePointer)
+            .hasChild(trait.implements(Incrementable))
+            .assert(@TypeOf(counter));
+    }
+}
+
 pub fn main() void {
     // these should all silently work without errors
     countToTen(MyCounter);
