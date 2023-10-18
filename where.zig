@@ -9,7 +9,8 @@ pub fn Incrementable(comptime Type: type) type {
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
-        pub const read = fn (*Type) Type.Count;
+        pub const read = fn (*const Type) Type.Count;
+        pub const reset = fn (*Type) void;
     };
 }
 
@@ -26,8 +27,12 @@ const MyCounter = struct {
         self.count += 1;
     }
     
-    pub fn read(self: *@This()) Count {
+    pub fn read(self: *const @This()) Count {
         return self.count;
+    }
+
+    pub fn reset(self: *@This()) void {
+        self.count = 0;
     }
 };
 
@@ -44,28 +49,31 @@ const MyCounterWrongFn = struct {
         self.count += amount;
     }
     
-    pub fn read(self: *@This()) Count {
+    pub fn read(self: *const @This()) Count {
         return self.count;
+    }
+
+    pub fn reset(self: *@This()) void {
+        self.count = 0;
     }
 };
 
-pub fn countWithBoth(comptime T: type, comptime U: type) Returns(void, .{
-    where(T).implements(Incrementable),
-    where(U).implements(Incrementable)
+pub fn countWithBoth(c1: anytype, c2: anytype) Returns(void, .{
+    where(@TypeOf(c1)).mutRef().implements(Incrementable),
+    where(@TypeOf(c2)).mutRef().implements(Incrementable)
 }) {
-    var counter1 = T.init();
-    while (counter1.read() < 10) {
-        var counter2 = U.init();
-        while (counter2.read() < 10) {
-            counter2.increment();
+    c1.reset();
+    while (c1.read() < 10) {
+        c2.reset();
+        while (c2.read() < 10) {
+            c2.increment();
         }
-        counter1.increment();
+        c1.increment();
     }
 }
 
-pub fn countToTen(ctrs: anytype) Returns(void, .{
-    where(@TypeOf(ctrs)).hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
-        .child().implements(Incrementable)
+pub fn incrementAll(ctrs: anytype) Returns(void, .{
+    where(@TypeOf(ctrs)).coercesToMutSlice().implements(Incrementable)
 }) {
     for (ctrs) |*ctr| {
         while (ctr.read() < 10) {
@@ -75,7 +83,7 @@ pub fn countToTen(ctrs: anytype) Returns(void, .{
 }
 
 pub fn main() void {
-    var counters = [2]MyCounter{ MyCounter.init(), MyCounter.init() };
-    //var slice: []MyCounter = counters[0..];
-    countToTen(counters[0..]);
+    const counters = [2]MyCounter{ MyCounter.init(), MyCounter.init() };
+    incrementAll(&counters);
+    countWithBoth(&counters[0], &counters[1]);
 }

@@ -4,7 +4,7 @@ const trait = @import("trait.zig");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
-        pub const Count = trait.is(.Int);
+        pub const Count = trait.hasTypeId(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -232,14 +232,6 @@ pub const InvalidCounterHolder = struct {
 
     pub const Counter = MyCounterMissingDecl;
 };
-
-pub const referenceCountToTen(counter: anytype) void {
-    comptime {
-        trait.is(.OnePointer)
-            .hasChild(trait.implements(Incrementable))
-            .assert(@TypeOf(counter));
-    }
-}
 
 pub fn main() void {
     // these should all silently work without errors
