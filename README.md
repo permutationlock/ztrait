@@ -277,10 +277,9 @@ only pass exactly slice types, but this version allows for
 parameters of type `*[_]T` to be passed as well.
 
 ```Zig
-pub fn incrementAll(ctrs: anytype) Requires(
-    .{ where(@TypeOf(ctrs)).coercesToMutSlice().implements(Incrementable) },
-    Returns(void)
-) {
+pub fn incrementAll(ctrs: anytype) Returns(void, .{
+    where(@TypeOf(ctrs)).coercesToMutSlice().implements(Incrementable)
+}) {
     for (ctrs) |*ctr| {
         ctr.increment();
     }
