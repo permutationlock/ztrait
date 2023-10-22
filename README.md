@@ -5,12 +5,12 @@ and compile-time verifying that types satisfy them.
 
 **Note:** Nothing is done to require that every declaration referenced on a type
 must belong to a trait that was implemented. In other words, duck-typing still
-works as usual, but trait verification runs first. Therefure the library mainly
+works as usual, but trait verification runs first. Therefore the library mainly
 serves as a convention that provides nice error messages and type documentation.
 
 ## Basic use
 
-A trait is simply a comptime function taking a type and returning a struct.
+A trait is simply a comptime function taking a type and returning a struct type.
 Each declaration of the returned struct defines a required declaration that the
 type must have if it implements the trait. 
 
