@@ -265,7 +265,7 @@ a mutable (not `const`) slice of type `[]T` such that the child type
 ```Zig
 pub fn incrementAll(ctrs: anytype) Returns(void, .{
     where(@TypeOf(ctrs))
-        .hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
+        .hasTypeInfo(.{ .Pointer = .{ .size = .Slice, .is_const = false } })
         .child()
         .implements(Incrementable)
 }) {
