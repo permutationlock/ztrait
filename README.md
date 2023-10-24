@@ -11,7 +11,7 @@ serves as a convention that provides nice error messages and type documentation.
 ## Related links
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
  - [Ziggit discussion on type constraints in function definitions](https://ziggit.dev/t/implementing-generic-concepts-on-function-declarations/1490/29)
- - Zig issue discussions (I have no position on these proposals, I like the Zig team's reasoning): [#1268](https://github.com/ziglang/zig/issues/1268), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198)
+ - Zig issue discussions: [#1268](https://github.com/ziglang/zig/issues/1268), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198) (I have no position on these proposals, I like the Zig team's reasoning)
 
 ## Basic use
 
