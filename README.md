@@ -63,7 +63,7 @@ need to add a comptime verification block at the start of the function.
 const trait = @import("trait.zig");
 
 pub fn countToTen(comptime Counter: type) void {
-    comptime { trait.implements(Incrementable).assert(Counter); }
+    comptime trait.implements(Incrementable).assert(Counter);
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -71,7 +71,7 @@ pub fn countToTen(comptime Counter: type) void {
 }
 ```
 
-**Note:** If we don't place the trait verification inside a comptime block then
+**Note:** If we don't specify that the trait verification is comptime then
 verification might be evaluated later during compilation. This results in
 regular duck-typing errors rather than trait implementation errors.
 
@@ -204,6 +204,50 @@ main.zig:200:57: note: called from here
                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
 ```
 
+## Pointers and slices with `anytype`
+
+With the ability to verify `@typeInfo` properties as well, we can constrain
+`anytype` parameters to be pointers to types implementing traits. The
+following function takes a mutable pointer `*T` to a type `T` that implements
+the `Incrementable` interface from above.
+
+```
+pub fn countToTen(counter: anytype) usize {
+    comptime trait.hasTypeInfo(.{
+            .Pointer = .{ .size = .One, .is_const = false }
+        }).hasChild(
+            trait.implements(Incrementable)
+        ).assert(@TypeOf(counter));
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+Using the available primitives, it is possible to create helper functions
+that e.g. constrain an `anytype` parameter to be a type that can
+coerce to a slice `[]T` where `T` is further constrained.
+
+The following function takes a mutable single item pointer `*I` where
+`I` is an integer type, and a second const pointer type `L` where `L` coerces
+to the slice type `[]const I`.
+
+```
+const meta = @import("std").meta;
+
+pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
+    comptime {
+        isMutPointerTo(hasTypeId(.Int)).assert(@TypeOf(count_ptr));
+        coercesToConstSliceOf(is(meta.Child(@TypeOf(count_ptr))))
+            .assert(@TypeOf(list));
+    }
+
+    for (list) |elem| {
+        count_ptr.* += elem;
+    }
+}
+```
+
 ## Verifying that a type implements a trait in its definition
 
 Alongside enforcing trait implementation in generic functions, types can
@@ -237,7 +281,7 @@ accomplish a janky version of Rust's `where` syntax.
 
 ```Zig
 pub fn countToTen(comptime Counter: type) Returns(void, .{
-    where(Counter).implements(Incrementable)
+    where(Counter, implements(Incrementable))
 }) {
     var counter = Counter.init();
     while (counter.read() < 10) {
@@ -254,15 +298,12 @@ verification here. The `where` syntax is just a wrapper around the regular
 A more practical use-case for this style of syntax is if we want to take a
 pointer to type that implements a given trait.
 The following example shows a function that takes a parameter that is
-a mutable (not `const`) slice of type `[]T` such that the child type
-`T` implements the `Incrementable` trait.
+a mutable pointer type (not `const`) that can coerce to a slice type
+`[]T` such that the child type `T` implements the `Incrementable` trait.
 
 ```Zig
 pub fn incrementAll(ctrs: anytype) Returns(void, .{
-    where(@TypeOf(ctrs))
-        .hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
-        .child()
-        .implements(Incrementable)
+    where(@TypeOf(ctrs), coercesToMutSliceOf(implements(Incrementable)))
 }) {
     for (ctrs) |*ctr| {
         ctr.increment();
@@ -270,29 +311,12 @@ pub fn incrementAll(ctrs: anytype) Returns(void, .{
 }
 ```
 
-A shorthand is provided for many such common cases. The following example shows
-the shorthand for taking a parameter that coerces to a mutable slice `[]T`
-where `T` implements `Incrementable`. In the prior version above we could
-only pass exactly slice types, but this version allows for
-parameters of type `*[_]T` to be passed as well.
-
-```Zig
-pub fn incrementAll(ctrs: anytype) Requires(
-    .{ where(@TypeOf(ctrs)).coercesToMutSlice().implements(Incrementable) },
-    Returns(void)
-) {
-    for (ctrs) |*ctr| {
-        ctr.increment();
-    }
-}
-```
-
-Any number of types can be verified.
+Multiple `where` statements can be evaluated.
 
 ```Zig
 pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
-    where(T).implements(Incrementable),
-    where(U).implements(Incrementable)
+    where(T, implements(Incrementable)),
+    where(U, implements(Incrementable))
 }) {
     var counter1 = T.init();
     while (counter1.read() < 10) {

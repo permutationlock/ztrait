@@ -1,7 +1,7 @@
 const std = @import("std");
 const Builder = std.build.Builder;
 
-const paths = .{ "main.zig", "where.zig" };
+const paths = .{ "examples/incrementable.zig", "examples/where.zig" };
 
 pub fn build(b: *Builder) !void {
     const target = b.standardTargetOptions(.{});
