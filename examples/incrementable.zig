@@ -1,6 +1,5 @@
 const std = @import("std");
-
-const trait = @import("trait.zig");
+const trait = @import("trait");
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
