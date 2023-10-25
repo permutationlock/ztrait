@@ -4,6 +4,8 @@ const std = @import("std");
 // Core Functionality
 // ------------------
 
+pub const TraitFn = fn (type) type;
+
 pub fn is(comptime enforced_type: type) Constraint {
     return .{ .enforced_type = enforced_type };
 }
@@ -257,8 +259,7 @@ pub const Constraint = struct {
 // -----------------
 // Constructed types
 // -----------------
-
-pub const TraitFn = fn (type) type;
+// We compile time construct some types based on types in `std.builtin`.
 
 // build our own version of the TypeId enum for clean error messages
 pub const TypeId = @Type(std.builtin.Type{
@@ -279,6 +280,7 @@ fn getTypeFieldName(comptime id: TypeId) []const u8 {
 // struct containing an optional wrapped version of all subfields other than
 // 'fields' and 'decls'. The default value of each generated optional field is
 // set to null.
+//
 // The idea is to create a type that can be used to optionally constrain
 // metadata for any generic type
 pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
@@ -336,13 +338,14 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
 // ---------------------
 // Convenience functions
 // ---------------------
-//   All helper functions are defined at the top-level namespace to allow users
-//   to define their own.
+//   All helper functions are defined in the top-level namespace (rather than
+//   within the `Contract` type) to allow users to define their own as needed.
 //
 //   To create custom helper functions:
-//     - create a file "custom_trait.zig" to use in place of "trait.zig"
-//     - add the following line: pub usingnamespace @import("trait.zig");
-//     - define as many of your own helpers as you want!
+//     - create a new file, e.g. "mytrait.zig"
+//     - add the following line: `pub usingnamespace @import("trait");`
+//     - define additional helpers as you please
+//     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
 pub fn isContainer() Constraint {
     return isAny().hasOneOfTypeInfo(.{
@@ -398,8 +401,7 @@ fn coercesToSliceInternal(
             .is_const = if (is_const) true else null,
         }
     }).hasChild(
-        isAny().hasTypeId(.Array)
-            .hasChild(child_constraint)
+        hasTypeId(.Array).hasChild(child_constraint)
     ).orElse(
         isAny().hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
             .hasChild(child_constraint)
@@ -413,12 +415,27 @@ fn coercesToSliceInternal(
 // The names were inspired by "where syntax" from Rust.
 //
 // E.g:
+//
 //    pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
 //        where(@TypeOf(count_ptr), isMutPointer().hasChild(hasTypeId(.Int))),
 //        where(@TypeOf(list), coercesToConstSliceOf(
 //            is(@typeInfo(@TypeOf(count_ptr).Pointer.child))
 //        ))
 //    }) {
+//        for (list) |elem| {
+//            count_ptr.* += elem;
+//        }
+//    }
+//
+// Is equivalent to:
+//
+//    pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
+//        comptime isMutPointer().hasChild(hasTypeId(.Int)))
+//            .assert(@TypeOf(count_ptr))
+//        comptime coercesToConstSliceOf(
+//            is(@typeInfo(@TypeOf(count_ptr).Pointer.child))
+//        )).assert(@TypeOf(list));
+//
 //        for (list) |elem| {
 //            count_ptr.* += elem;
 //        }
