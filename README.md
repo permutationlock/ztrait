@@ -339,3 +339,24 @@ you from using the `.assert(Type)` syntax inside a `Return`, and
 there is nothing stopping you from using `where` syntax in a comptime
 block anywhere else in the code. Pick whatever you like best.
 
+## Adding helper functions
+
+Above we used some convenient helper functions for brevity such as
+`coercesToMutSliceOf`. Users can define their own helper functions as
+needed.
+
+```Zig
+// mytrait.zig
+
+const trait = @import("trait.zig");
+pub usingnamespace trait;
+
+pub fn isU32PackedStruct() trait.Constraint {
+    return trait.hasTypeInfo(.{
+        .Struct = .{
+            .layout = .Packed,
+            .backing_integer = u32,
+        }
+    });
+}
+```

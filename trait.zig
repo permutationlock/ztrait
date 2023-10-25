@@ -348,7 +348,7 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
 //     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
 pub fn isContainer() Constraint {
-    return isAny().hasOneOfTypeInfo(.{
+    return hasOneOfTypeInfo(.{
         .{ .Struct = .{} },
         .{ .Union = .{} },
     });
@@ -365,20 +365,20 @@ pub fn isContainerPacked() Constraint {
 fn isContainerInternal(
     comptime layout: std.builtin.Type.ContainerLayout
 ) Constraint {
-    return isAny().hasOneOfTypeInfo(.{
+    return hasOneOfTypeInfo(.{
         .{ .Struct = .{ .layout = layout } },
         .{ .Union = .{ .layout = layout } },
     });
 }
 
 pub fn isMutPointerTo(comptime constraint: Constraint) Constraint {
-    return isAny().hasTypeInfo(.{
+    return hasTypeInfo(.{
         .Pointer = .{ .size = .One, .is_const = false },
     }).hasChild(constraint);
 }
 
 pub fn isConstPointer(comptime constraint: Constraint) Constraint {
-    return isAny().hasTypeInfo(.{
+    return hasTypeInfo(.{
         .{ .Pointer = .{ .size = .One } },
     }).hasChild(constraint);
 }
