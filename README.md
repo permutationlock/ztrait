@@ -333,3 +333,9 @@ pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
     }
 }
 ```
+
+**Note:** All of this is just syntactic sugar: there is nothing stopping
+you from using the `.assert(Type)` syntax inside a `Return`, and
+there is nothing stopping you from using `where` syntax in a comptime
+block anywhere else in the code. Pick whatever you like best.
+
