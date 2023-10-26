@@ -242,7 +242,7 @@ The following function takes a mutable single item pointer `*I` where
 `I` is an integer type, and a second const pointer type `L` where `L` coerces
 to the slice type `[]const I`.
 
-```
+```Zig
 const meta = @import("std").meta;
 
 pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
