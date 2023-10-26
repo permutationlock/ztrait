@@ -196,18 +196,18 @@ pub const Constraint = struct {
             }
         }
         inline for (self.traits) |trait| {
-            const Interface = trait.*(Type);
+            const TraitStruct = trait.*(Type);
             const prelude = std.fmt.comptimePrint(
                 "trait '{}' failed",
-                .{Interface}
+                .{TraitStruct}
             );
-            inline for (@typeInfo(Interface).Struct.decls) |decl| {
+            inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
                 if (!@hasDecl(Type, decl.name)) {
                     return prelude ++ ": missing decl '" ++ decl.name ++ "'";
                 }
             }
-            inline for (@typeInfo(Interface).Struct.decls) |decl| {
-                const FieldType = @field(Interface, decl.name);
+            inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
+                const FieldType = @field(TraitStruct, decl.name);
                 const fld = @field(Type, decl.name);
 
                 if (@TypeOf(FieldType) == Constraint) {
@@ -254,85 +254,6 @@ pub const Constraint = struct {
         }
     }
 };
-
-
-// -----------------
-// Constructed types
-// -----------------
-// We compile time construct some types based on types in `std.builtin`.
-
-// build our own version of the TypeId enum for clean error messages
-pub const TypeId = @Type(std.builtin.Type{
-    .Enum = .{
-        .tag_type = @typeInfo(std.builtin.TypeId).Enum.tag_type,
-        .fields = @typeInfo(std.builtin.TypeId).Enum.fields,
-        .decls = &[0]std.builtin.Type.Declaration{},
-        .is_exhaustive = false,
-    },
-});
-
-fn getTypeFieldName(comptime id: TypeId) []const u8 {
-    return @typeInfo(TypeInfo).Union.fields[@intFromEnum(id)].name;
-}
-
-// Construct a new union type TypeInfo based on std.builtin.Type such that
-// each field std.buitlin.Type has a corresponding field in TypeInfo of type
-// struct containing an optional wrapped version of all subfields other than
-// 'fields' and 'decls'. The default value of each generated optional field is
-// set to null.
-//
-// The idea is to create a type that can be used to optionally constrain
-// metadata for any generic type
-pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
-    .layout = @typeInfo(std.builtin.Type).Union.layout,
-    .tag_type = TypeId,
-    .fields = init: {
-        const og_uflds = @typeInfo(std.builtin.Type).Union.fields;
-        var uflds: [og_uflds.len]std.builtin.Type.UnionField = undefined;
-        inline for (&uflds, og_uflds) |*ufld, og_ufld| {
-            const type_info = @typeInfo(og_ufld.type);
-            if (type_info == .Struct) {
-                const struct_info = type_info.Struct;
-                ufld.*.type = @Type(std.builtin.Type{ .Struct = .{
-                    .layout = struct_info.layout,
-                    .backing_integer = struct_info.backing_integer,
-                    .decls = &[0]std.builtin.Type.Declaration{},
-                    .is_tuple = struct_info.is_tuple,
-                    .fields = sinit: {
-                        var og_sflds = struct_info.fields;
-                        var sflds: [og_sflds.len]std.builtin.Type.StructField
-                            = undefined;
-                        var i: usize = 0;
-                        inline for (og_sflds) |fld| {
-                            if (std.mem.eql(u8, fld.name, "fields")) {
-                                continue;
-                            } else if (std.mem.eql(u8, fld.name, "decls")) {
-                                continue;
-                            }
-                            sflds[i] = fld;
-                            sflds[i].type = @Type(std.builtin.Type{
-                                .Optional = .{
-                                    .child = fld.type,
-                                },
-                            });
-                            sflds[i].default_value = @ptrCast(
-                                &@as(?fld.type, null)
-                            );
-                            i += 1;
-                        }
-                        break :sinit sflds[0..i];
-                    },
-                } });
-            } else {
-                ufld.*.type = struct {};
-            }
-            ufld.*.name = og_ufld.name;
-            ufld.*.alignment = og_ufld.alignment;
-        }
-        break :init &uflds;
-    },
-    .decls = &[0]std.builtin.Type.Declaration{},
-} });
 
 
 // ---------------------
@@ -447,4 +368,88 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 
 pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
     constraint.assert(T);
+}
+
+
+// -----------------
+// Constructed types
+// -----------------
+// We compile time construct some types based on types in `std.builtin`.
+
+// build our own version of the TypeId enum for clean error messages
+pub const TypeId = @Type(std.builtin.Type{
+    .Enum = .{
+        .tag_type = @typeInfo(std.builtin.TypeId).Enum.tag_type,
+        .fields = @typeInfo(std.builtin.TypeId).Enum.fields,
+        .decls = &[0]std.builtin.Type.Declaration{},
+        .is_exhaustive = false,
+    },
+});
+
+fn getTypeFieldName(comptime id: TypeId) []const u8 {
+    return @typeInfo(TypeInfo).Union.fields[@intFromEnum(id)].name;
+}
+
+// Construct a new union type TypeInfo based on std.builtin.Type such that
+// each field std.buitlin.Type has a corresponding field in TypeInfo of type
+// struct containing an optional wrapped version of all subfields other than
+// 'fields' and 'decls'. The default value of each generated optional field is
+// set to null.
+//
+// The idea is to create a type that can be used to optionally constrain
+// metadata for any generic type
+pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
+    .layout = @typeInfo(std.builtin.Type).Union.layout,
+    .tag_type = TypeId,
+    .fields = init: {
+        const og_uflds = @typeInfo(std.builtin.Type).Union.fields;
+        var uflds: [og_uflds.len]std.builtin.Type.UnionField = undefined;
+        inline for (&uflds, og_uflds) |*ufld, og_ufld| {
+            const type_info = @typeInfo(og_ufld.type);
+            if (type_info == .Struct) {
+                const struct_info = type_info.Struct;
+                ufld.*.type = @Type(std.builtin.Type{ .Struct = .{
+                    .layout = struct_info.layout,
+                    .backing_integer = struct_info.backing_integer,
+                    .decls = &[0]std.builtin.Type.Declaration{},
+                    .is_tuple = struct_info.is_tuple,
+                    .fields = sinit: {
+                        var og_sflds = struct_info.fields;
+                        var sflds: [og_sflds.len]std.builtin.Type.StructField
+                            = undefined;
+                        var i: usize = 0;
+                        inline for (og_sflds) |fld| {
+                            if (std.mem.eql(u8, fld.name, "fields")) {
+                                continue;
+                            } else if (std.mem.eql(u8, fld.name, "decls")) {
+                                continue;
+                            }
+                            sflds[i] = fld;
+                            sflds[i].type = @Type(std.builtin.Type{
+                                .Optional = .{
+                                    .child = fld.type,
+                                },
+                            });
+                            sflds[i].default_value = @ptrCast(
+                                &@as(?fld.type, null)
+                            );
+                            i += 1;
+                        }
+                        break :sinit sflds[0..i];
+                    },
+                } });
+            } else {
+                ufld.*.type = struct {};
+            }
+            ufld.*.name = og_ufld.name;
+            ufld.*.alignment = og_ufld.alignment;
+        }
+        break :init &uflds;
+    },
+    .decls = &[0]std.builtin.Type.Declaration{},
+} });
+
+
+test "generate docs" {
+    std.testing.refAllDecls(@This());
 }
