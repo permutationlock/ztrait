@@ -221,7 +221,7 @@ With the ability to verify `@typeInfo` properties as well, we can constrain
 following function takes a mutable pointer `*T` to a type `T` that implements
 the `Incrementable` interface from above.
 
-```
+```Zig
 pub fn countToTen(counter: anytype) usize {
     comptime trait.hasTypeInfo(.{
             .Pointer = .{ .size = .One, .is_const = false }
