@@ -238,7 +238,7 @@ Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
 With the ability to verify `@typeInfo` properties as well, we can constrain
 `anytype` parameters to be pointers to types implementing traits. The
-following function takes a mutable pointer `*T` to a type `T` that implements
+following function takes a mutable slice `[]T` where `T` implements
 the `Incrementable` interface from above.
 
 ```Zig
@@ -251,8 +251,9 @@ pub fn incrementAll(list: anytype) usize {
 }
 ```
 
-The example above is quite verbose, but we can create helper functions
-to make things more readable.
+The example above is quite verbose, and also couldn't accept parameters like `*[_]T`
+that coerce to `[]T`. Luckily it is quite simple to create helper functions
+to make things more functional and readable.
 The `coercesToMutSliceOf` helper verifies that a type
 can coerce to a slice type `[]T` where `T` is further constrained.
 
