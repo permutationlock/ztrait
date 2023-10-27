@@ -221,7 +221,7 @@ With the ability to verify `@typeInfo` properties as well, we can constrain
 following function takes a mutable pointer `*T` to a type `T` that implements
 the `Incrementable` interface from above.
 
-```
+```Zig
 pub fn countToTen(counter: anytype) usize {
     comptime trait.hasTypeInfo(.{
             .Pointer = .{ .size = .One, .is_const = false }
@@ -242,7 +242,7 @@ The following function takes a mutable single item pointer `*I` where
 `I` is an integer type, and a second const pointer type `L` where `L` coerces
 to the slice type `[]const I`.
 
-```
+```Zig
 const meta = @import("std").meta;
 
 pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
