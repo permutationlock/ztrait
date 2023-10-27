@@ -3,7 +3,7 @@ const Builder = std.build.Builder;
 
 const Example = struct { name: []const u8, path: []const u8 };
 const paths = [_]Example{
-    .{ .name = "incrementable", .path = "examples/incrementable.zig" },
+    .{ .name = "count", .path = "examples/count.zig" },
     .{ .name = "where", .path = "examples/where.zig" },
     .{ .name = "mytrait", .path = "examples/use_mytrait.zig" },
 };

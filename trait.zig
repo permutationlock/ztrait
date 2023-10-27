@@ -6,6 +6,14 @@ const std = @import("std");
 
 pub const TraitFn = fn (type) type;
 
+pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
+    comptime {
+        if (constraint.check(T)) |reason| {
+            @compileError(reason);
+        }
+    }
+}
+
 pub fn is(comptime enforced_type: type) Constraint {
     return .{ .enforced_type = enforced_type };
 }
@@ -245,14 +253,6 @@ pub const Constraint = struct {
 
         return null;
     }
-
-    pub fn assert(comptime self: Self, comptime Type: type) void {
-        comptime {
-            if (self.check(Type)) |reason| {
-                @compileError(reason);
-            }
-        }
-    }
 };
 
 
@@ -330,18 +330,21 @@ fn coercesToSliceInternal(
 }
 
 
-// ------------
-// Where syntax
-// ------------
-// The names were inspired by "where syntax" from Rust.
+// --------------------------
+// Function definition syntax
+// --------------------------
+// A `Returns` helper function allowing for trait requirements in
+// function definitions. A warning, error messages are less helpful
+// with this method because the error happens before the function is
+// generated and thus the call site is not reported when building
+// with -freference-trace
 //
 // E.g:
 //
 //    pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
 //        where(@TypeOf(count_ptr), isMutPointer().hasChild(hasTypeId(.Int))),
 //        where(@TypeOf(list), coercesToConstSliceOf(
-//            is(@typeInfo(@TypeOf(count_ptr).Pointer.child))
-//        ))
+//            is(meta.Child(@TypeOf(count_ptr)))))
 //    }) {
 //        for (list) |elem| {
 //            count_ptr.* += elem;
@@ -351,11 +354,10 @@ fn coercesToSliceInternal(
 // Is equivalent to:
 //
 //    pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
-//        comptime isMutPointer().hasChild(hasTypeId(.Int)))
-//            .assert(@TypeOf(count_ptr))
-//        comptime coercesToConstSliceOf(
-//            is(@typeInfo(@TypeOf(count_ptr).Pointer.child))
-//        )).assert(@TypeOf(list));
+//        comptime where(@TypeOf(count_ptr),
+//            isMutPointer().hasChild(hasTypeId(.Int)));
+//        comptime where(@TypeOf(list),
+//            coercesToConstSliceOf(meta.Child(@TypeOf(count_ptr))));
 //
 //        for (list) |elem| {
 //            count_ptr.* += elem;
@@ -364,10 +366,6 @@ fn coercesToSliceInternal(
 
 pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
     return ReturnType;
-}
-
-pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
-    constraint.assert(T);
 }
 
 

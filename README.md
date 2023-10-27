@@ -29,13 +29,11 @@ sub-type `Count`, define an `init` funciton, and define member functions
 `increment` and `read`.
 
 ```Zig
-const trait = @import("trait.zig");
-
 pub fn Incrementable(comptime Type: type) type {
     return struct {
         // below is the same as `pub const Count = type` except that during
         // trait verification it requires that '@typeInfo(Type.Count) == .Int'
-        pub const Count = trait.hasTypeId(.Int);
+        pub const Count = hasTypeId(.Int);
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
@@ -67,13 +65,11 @@ const MyCounter = struct {
 ```
 
 To require that a generic type parameter implenents a given trait you simply
-need to add a comptime verification block at the start of the function.
+need to add a comptime verification line at the start of your function.
 
 ```Zig
-const trait = @import("trait.zig");
-
 pub fn countToTen(comptime Counter: type) void {
-    comptime trait.implements(Incrementable).assert(Counter);
+    comptime where(Counter, implements(Incrementable));
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -81,12 +77,12 @@ pub fn countToTen(comptime Counter: type) void {
 }
 ```
 
-**Note:** If we don't specify that the trait verification is comptime then
+**Note:** If we don't specify that trait verification is comptime then
 verification might be evaluated later during compilation. This results in
 regular duck-typing errors rather than trait implementation errors.
 
 If we define a type that fails to implement the `Incrementable` trait and pass
-it to `countToTen`, then `assert` will produce a compile error.
+it to `countToTen`, then the call to `where` will produce a compile error.
 
 ```Zig
 const MyCounterMissingDecl = struct {
@@ -105,12 +101,12 @@ const MyCounterMissingDecl = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterMissingDecl)' failed: missing decl 'increment'
-                @compileError(reason);
-                ^~~~~~~~~~~~~~~~~~~~~
-main.zig:177:54: note: called from here
-    comptime trait.implements(Incrementable).assert(Counter);
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterMissingDecl)' failed: missing decl 'increment'
+            @compileError(reason);
+            ^~~~~~~~~~~~~~~~~~~~~
+examples/count.zig:182:19: note: called from here
+    comptime where(Counter, implements(Incrementable));
+             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ```Zig
@@ -134,12 +130,12 @@ const MyCounterInvalidType = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int', found 'trait.TypeId.Struct'
-                @compileError(reason);
-                ^~~~~~~~~~~~~~~~~~~~~
-main.zig:177:54: note: called from here
-    comptime trait.implements(Incrementable).assert(Counter);
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int', found 'trait.TypeId.Struct'
+            @compileError(reason);
+            ^~~~~~~~~~~~~~~~~~~~~
+examples/count.zig:182:19: note: called from here
+    comptime where(Counter, implements(Incrementable));
+             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ```Zig
@@ -163,15 +159,15 @@ const MyCounterWrongFn = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterWrongFn)' failed: decl 'increment': expected 'fn(*main.MyCounterWrongFn) void', found 'fn(*main.MyCounterWrongFn, u32) void'
-                @compileError(reason);
-                ^~~~~~~~~~~~~~~~~~~~~
-main.zig:177:54: note: called from here
-    comptime trait.implements(Incrementable).assert(Counter); }
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterWrongFn)' failed: decl 'increment': expected 'fn (*count.MyCounterWrongFn) void', found 'fn (*count.MyCounterWrongFn, u32) void'
+            @compileError(reason);
+            ^~~~~~~~~~~~~~~~~~~~~
+examples/count.zig:182:19: note: called from here
+    comptime where(Counter, implements(Incrementable));
+             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
-## Recursion
+## Constraining subtypes
 
 Traits can require each implementing type to declare subtypes
 that are constrained by further traits.
@@ -179,7 +175,7 @@ that are constrained by further traits.
 ```Zig
 pub fn HasIncrementable(comptime _: type) type {
     return struct {
-        pub const Counter = trait.implements(Incrementable);
+        pub const Counter = implements(Incrementable);
     };
 }
 
@@ -187,7 +183,7 @@ pub fn HasIncrementable(comptime _: type) type {
 
 ```Zig
 pub fn useHolderToCountToTen(comptime T: type) void {
-    comptime trait.implements(HasIncrementable).assert(T);
+    comptime where(T, implements(HasIncrementable));
     var counter = T.Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -206,59 +202,12 @@ pub const InvalidCounterHolder = struct {
 ```
 
 ```Shell
-trait.zig:138:17: error: trait 'main.HasIncrementable(main.InvalidCounterHolder)' failed: decl 'Counter': trait 'main.Incrementable(main.MyCounterMissingDecl)' failed: missing decl 'increment'
-                @compileError(reason);
-                ^~~~~~~~~~~~~~~~~~~~~
-main.zig:200:57: note: called from here
-    comptime trait.implements(HasIncrementable).assert(T);
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
-```
-
-## Pointers and slices with `anytype`
-
-With the ability to verify `@typeInfo` properties as well, we can constrain
-`anytype` parameters to be pointers to types implementing traits. The
-following function takes a mutable pointer `*T` to a type `T` that implements
-the `Incrementable` interface from above.
-
-```Zig
-pub fn countToTen(counter: anytype) usize {
-    comptime trait.hasTypeInfo(.{
-            .Pointer = .{ .size = .One, .is_const = false }
-        }).hasChild(
-            trait.implements(Incrementable)
-        ).assert(@TypeOf(counter));
-    while (counter.read() < 10) {
-        counter.increment();
-    }
-}
-```
-
-Using the available primitives, it is possible to create helper functions.
-The `coercesToMutSliceOf` helper will verify that a type
-can coerce to a slice type `[]T` where `T` is further constrained.
-
-The following function expects two parameters types:
-
- 1. a mutable single item pointer `*I` where
-    `I` is an integer type;
- 2. a `const` pointer that can coerce to the
-    slice type `[]const I`.
-
-```Zig
-const meta = @import("std").meta;
-
-pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
-    comptime {
-        isMutPointerTo(hasTypeId(.Int)).assert(@TypeOf(count_ptr));
-        coercesToConstSliceOf(is(meta.Child(@TypeOf(count_ptr))))
-            .assert(@TypeOf(list));
-    }
-
-    for (list) |elem| {
-        count_ptr.* += elem;
-    }
-}
+trait.zig:12:13: error: trait 'count.HasIncrementable(count.InvalidCounterHolder)' failed: decl 'Counter': trait 'count.Incrementable(count.MyCounterMissingDecl)' failed: missing decl 'increment'
+            @compileError(reason);
+            ^~~~~~~~~~~~~~~~~~~~~
+examples/count.zig:203:19: note: called from here
+    comptime where(T, implements(HasIncrementable));
+             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ## Declaring that a type implements a trait
@@ -268,7 +217,7 @@ can delare that they implement a given trait.
 
 ```Zig
 const MyCounter = struct {
-    comptime { trait.implements(Incrementable).assert(@This()); }
+    comptime { where(@This(), implements(Incrementable)); }
 
     // ...
 };
@@ -285,41 +234,85 @@ test {
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
-## Traits in function definitions: 'where' syntax
+## Pointers and slices with `anytype`
 
-Sometimes it can be useful to have type signatures directly in function
-definitions. Zig currently does not support that, but with a few hacks we can
-accomplish a janky version of Rust's `where` syntax.
+With the ability to verify `@typeInfo` properties as well, we can constrain
+`anytype` parameters to be pointers to types implementing traits. The
+following function takes a mutable pointer `*T` to a type `T` that implements
+the `Incrementable` interface from above.
 
 ```Zig
-pub fn countToTen(comptime Counter: type) Returns(void, .{
-    where(Counter, implements(Incrementable))
-}) {
-    var counter = Counter.init();
-    while (counter.read() < 10) {
+pub fn incrementAll(list: anytype) usize {
+    comptime where(@TypeOf(list),
+        hasTypeInfo(.{
+            .Pointer = .{ .size = .Slice, .is_const = false }
+        }).hasChild(
+            implements(Incrementable)
+        ));
+    for (list) |*counter| {
         counter.increment();
     }
 }
 ```
 
-The first parameter of `Returns` is the return type of the function, while the
-second is an unreferenced `anytype` parameter allowing us to put type
-verification here. The `where` syntax is just a wrapper around the regular
-`assert` API for readability.
-
-A more practical use-case for this style of syntax is if we want to take a
-pointer to a type that implements a given trait.
-The following example shows a function that takes a parameter that must be
-a mutable pointer type (not `const`) that can coerce to a slice type
-`[]T` such that the child type `T` implements the `Incrementable` trait.
+The example above is quite verbose, but we can create helper functions
+to make things more readable.
+The `coercesToMutSliceOf` helper verifies that a type
+can coerce to a slice type `[]T` where `T` is further constrained.
 
 ```Zig
-pub fn incrementAll(ctrs: anytype) Returns(void, .{
-    where(@TypeOf(ctrs), coercesToMutSliceOf(implements(Incrementable)))
-}) {
-    for (ctrs) |*ctr| {
-        ctr.increment();
+pub fn incrementAll(list: anytype) usize {
+    comptime where(@TypeOf(list),
+        coercesToMutSliceOf(implements(Incrementable)));
+
+    for (list) |*counter| {
+        counter.increment();
     }
+}
+```
+
+Users can define their own helper functions as needed by expanding
+the trait module
+
+```Zig
+// mytrait.zig
+
+const trait = @import("trait");
+pub usingnamespace trait;
+
+pub fn isU32PackedStruct() trait.Constraint {
+    return trait.hasTypeInfo(.{
+        .Struct = .{
+            .layout = .Packed,
+            .backing_integer = u32,
+        }
+    });
+}
+```
+
+## Traits in function definitions: 'Returns' syntax
+
+Sometimes it can be useful to have type signatures directly in function
+definitions. Zig currently does not support this, but there is a hacky
+workaround using the fact that Zig can evaluate a `comptime` function in
+the return value.
+
+```Zig
+pub fn incrementAll(list: anytype) Returns(void, .{
+    where(@TypeOf(list), coercesToMutSliceOf(implements(Incrementable)))
+}) {
+    for (list) |*counter| {
+        counter.increment();
+    }
+}
+```
+
+The first parameter of `Returns` is the actual return type of the function,
+while the second is an unreferenced `anytype` parameter.
+
+```Zig
+pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
+    return ReturnType;
 }
 ```
 
@@ -341,29 +334,7 @@ pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
 }
 ```
 
-**Note:** All of this is just syntactic sugar: there is nothing stopping
-you from using the `.assert(Type)` syntax inside a `Return`, and
-there is nothing stopping you from using `where` syntax in a comptime
-block anywhere else in the code. Pick whatever you like best.
-
-## Adding helper functions
-
-Above we used some convenient helper functions for brevity such as
-`coercesToMutSliceOf`. Users can define their own helper functions as
-needed.
-
-```Zig
-// mytrait.zig
-
-const trait = @import("trait.zig");
-pub usingnamespace trait;
-
-pub fn isU32PackedStruct() trait.Constraint {
-    return trait.hasTypeInfo(.{
-        .Struct = .{
-            .layout = .Packed,
-            .backing_integer = u32,
-        }
-    });
-}
-```
+**Note:** error messages can be less helpful when using `Returns`
+because the compile error happens before the function is even
+generated. Therefore the call site generating the error is not
+reported when building with `-freference-trace`.
