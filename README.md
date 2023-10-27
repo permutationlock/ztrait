@@ -109,8 +109,8 @@ trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterMissingDecl)' f
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
-    comptime { trait.implements(Incrementable).assert(Counter); }
-               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+    comptime trait.implements(Incrementable).assert(Counter);
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 ```Zig
@@ -138,8 +138,8 @@ trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterInvalidType)' f
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
-    comptime { trait.implements(Incrementable).assert(Counter); }
-               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+    comptime trait.implements(Incrementable).assert(Counter);
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 ```Zig
@@ -167,14 +167,14 @@ trait.zig:138:17: error: trait 'main.Incrementable(main.MyCounterWrongFn)' faile
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:177:54: note: called from here
-    comptime { trait.implements(Incrementable).assert(Counter); }
-               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+    comptime trait.implements(Incrementable).assert(Counter); }
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
 ```
 
 ## Recursion
 
-Traits can require that each implementing type defines a subtype
-that is itself constrained by a trait.
+Traits can require each implementing type to declare subtypes
+that are constrained by further traits.
 
 ```Zig
 pub fn HasIncrementable(comptime _: type) type {
@@ -187,7 +187,7 @@ pub fn HasIncrementable(comptime _: type) type {
 
 ```Zig
 pub fn useHolderToCountToTen(comptime T: type) void {
-    comptime { trait.implements(HasIncrementable).assert(T); }
+    comptime trait.implements(HasIncrementable).assert(T);
     var counter = T.Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -210,8 +210,8 @@ trait.zig:138:17: error: trait 'main.HasIncrementable(main.InvalidCounterHolder)
                 @compileError(reason);
                 ^~~~~~~~~~~~~~~~~~~~~
 main.zig:200:57: note: called from here
-    comptime { trait.implements(HasIncrementable).assert(T); }
-               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+    comptime trait.implements(HasIncrementable).assert(T);
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
 ```
 
 ## Pointers and slices with `anytype`
@@ -234,13 +234,16 @@ pub fn countToTen(counter: anytype) usize {
 }
 ```
 
-Using the available primitives, it is possible to create helper functions
-that e.g. constrain an `anytype` parameter to be a type that can
-coerce to a slice `[]T` where `T` is further constrained.
+Using the available primitives, it is possible to create helper functions.
+The `coercesToMutSliceOf` helper will verify that a type
+can coerce to a slice type `[]T` where `T` is further constrained.
 
-The following function takes a mutable single item pointer `*I` where
-`I` is an integer type, and a second const pointer type `L` where `L` coerces
-to the slice type `[]const I`.
+The following function expects two parameters types:
+
+ 1. a mutable single item pointer `*I` where
+    `I` is an integer type;
+ 2. a `const` pointer that can coerce to the
+    slice type `[]const I`.
 
 ```Zig
 const meta = @import("std").meta;
@@ -258,11 +261,10 @@ pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
 }
 ```
 
-## Verifying that a type implements a trait in its definition
+## Declaring that a type implements a trait
 
-Alongside enforcing trait implementation in generic functions, types can
-call assert directly in their definition to declare that they implement a given
-trait.
+Alongside enforcing trait implementation in generic functions, types themselves
+can delare that they implement a given trait.
 
 ```Zig
 const MyCounter = struct {
@@ -306,8 +308,8 @@ verification here. The `where` syntax is just a wrapper around the regular
 `assert` API for readability.
 
 A more practical use-case for this style of syntax is if we want to take a
-pointer to type that implements a given trait.
-The following example shows a function that takes a parameter that is
+pointer to a type that implements a given trait.
+The following example shows a function that takes a parameter that must be
 a mutable pointer type (not `const`) that can coerce to a slice type
 `[]T` such that the child type `T` implements the `Incrementable` trait.
 
