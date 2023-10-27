@@ -13,7 +13,7 @@ pub fn build(b: *Builder) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const trait = b.addModule("trait", .{
-        .source_file = .{ .path = "trait.zig" },
+        .source_file = .{ .path = "src/trait.zig" },
     });
 
     inline for (paths) |example| {
