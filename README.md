@@ -4,19 +4,22 @@ An attempt at implementing Rust style type traits in Zig. Using this library
 you can define traits and compile-time verify that types satisfy them.
 
 **Note:** Nothing is done to require that every declaration referenced on a type
-must belong to a trait that was implemented. In other words, duck-typing still
-works as usual, but trait verification runs first. Therefore the library mainly
+must belong to a trait that was implemented. In other words: duck-typing still
+works as usual, but trait verification runs first. The library mainly
 serves as a convention that provides nice error messages and type documentation.
 
 ## Related links
 
-I read several related projects and discussions while implementing
-the library. Links to the things that I found most memorable/useful are
-provided below.
+I read several related projects and discussion threads while implementing
+the library. Links to the things that I found most memorable and/or useful
+are provided below.
 
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
  - [Ziggit discussion on type constraints in function definitions](https://ziggit.dev/t/implementing-generic-concepts-on-function-declarations/1490/29)
- - Zig issue discussions: [#1268](https://github.com/ziglang/zig/issues/1268), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198) (I don't have a strong position on these proposals, I respect the Zig team's reasoning for keeping the type system simple)
+ - Zig proposals: [#1268](https://github.com/ziglang/zig/issues/1268), [#1669](https://github.com/ziglang/zig/issues/1669), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198)
+
+I don't have any strong position on the above proposals. I respect the Zig team's
+reasoning for keeping the type system simple.
 
 ## Basic use
 
