@@ -15,7 +15,6 @@ the library. Links to the things that I found most memorable and/or useful
 are provided below.
 
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
- - [Ziggit discussion on type constraints in function definitions](https://ziggit.dev/t/implementing-generic-concepts-on-function-declarations/1490/29)
  - Zig proposals: [#1268](https://github.com/ziglang/zig/issues/1268), [#1669](https://github.com/ziglang/zig/issues/1669), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198)
 
 I don't have any strong position on the above proposals. I respect the Zig team's
