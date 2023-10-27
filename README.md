@@ -243,12 +243,8 @@ the `Incrementable` interface from above.
 
 ```Zig
 pub fn incrementAll(list: anytype) usize {
-    comptime where(@TypeOf(list),
-        hasTypeInfo(.{
-            .Pointer = .{ .size = .Slice, .is_const = false }
-        }).hasChild(
-            implements(Incrementable)
-        ));
+    comptime where(@TypeOf(list), hasTypeInfo(.{ .Pointer = .{ .size = .Slice, .is_const = false } }).hasChild(implements(Incrementable)));
+
     for (list) |*counter| {
         counter.increment();
     }
@@ -262,8 +258,7 @@ can coerce to a slice type `[]T` where `T` is further constrained.
 
 ```Zig
 pub fn incrementAll(list: anytype) usize {
-    comptime where(@TypeOf(list),
-        coercesToMutSliceOf(implements(Incrementable)));
+    comptime where(@TypeOf(list), coercesToMutSliceOf(implements(Incrementable)));
 
     for (list) |*counter| {
         counter.increment();

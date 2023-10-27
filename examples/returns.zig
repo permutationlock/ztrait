@@ -48,12 +48,12 @@ pub fn main() void {
     //    sumIntSlice(&sum, &list);
     //    std.debug.print("sum: {d}\n", .{sum});
     //}
-    {
-        const list = [_]i32{ 1, -1, 2, -3, 5, -8, 13, -21 };
-        var sum: i32 = 0;
-        sumIntSlice(&sum, list);
-        std.debug.print("sum: {d}\n", .{sum});
-    }
+    //{
+    //    const list = [_]i32{ 1, -1, 2, -3, 5, -8, 13, -21 };
+    //    var sum: i32 = 0;
+    //    sumIntSlice(&sum, list);
+    //    std.debug.print("sum: {d}\n", .{sum});
+    //}
     //{
     //    const list = [_]i32{ 1, -1, 2, -3, 5, -8, 13, -21 };
     //    var sum: i32 = 0;
