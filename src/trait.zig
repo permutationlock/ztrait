@@ -83,18 +83,16 @@ pub const Constraint = struct {
 
     pub fn hasChild(comptime self: Self, comptime sub_constraint: Self) Self {
         comptime {
-            const child_constraint = sub_constraint;
             var constraint = self;
-            constraint.child_constraint = &child_constraint;
+            constraint.child_constraint = &sub_constraint;
             return constraint;
         }
     }
 
     pub fn orElse(comptime self: Self, comptime sub_constraint: Self) Self {
         comptime {
-            const or_constraint = sub_constraint;
             var constraint = self;
-            constraint.or_constraint = &or_constraint;
+            constraint.or_constraint = &sub_constraint;
             return constraint;
         }
     }
@@ -238,10 +236,7 @@ pub const Constraint = struct {
         if (self.child_constraint) |constraint| {
             if (@hasField(@TypeOf(spec_info), "child")) {
                 if (constraint.*.check(spec_info.child)) |reason| {
-                    return std.fmt.comptimePrint(
-                        "'{}' child: {s}",
-                        .{ Type, reason }
-                    );
+                    return reason;
                 }
             } else {
                 return std.fmt.comptimePrint(
@@ -268,11 +263,12 @@ pub const Constraint = struct {
 //     - define additional helpers as you please
 //     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
+pub fn isTuple() Constraint {
+    return hasTypeInfo(.{ .Struct = .{ .is_tuple = true } });
+}
+
 pub fn isContainer() Constraint {
-    return hasOneOfTypeInfo(.{
-        .{ .Struct = .{} },
-        .{ .Union = .{} },
-    });
+    return isContainerInternal(null);
 }
 
 pub fn isContainerExtern() Constraint {
@@ -284,7 +280,7 @@ pub fn isContainerPacked() Constraint {
 }
 
 fn isContainerInternal(
-    comptime layout: std.builtin.Type.ContainerLayout
+    comptime layout: ?std.builtin.Type.ContainerLayout
 ) Constraint {
     return hasOneOfTypeInfo(.{
         .{ .Struct = .{ .layout = layout } },
@@ -292,23 +288,23 @@ fn isContainerInternal(
     });
 }
 
-pub fn isMutPointerTo(comptime constraint: Constraint) Constraint {
+pub fn isMutRef(comptime constraint: Constraint) Constraint {
     return hasTypeInfo(.{
         .Pointer = .{ .size = .One, .is_const = false },
     }).hasChild(constraint);
 }
 
-pub fn isConstPointer(comptime constraint: Constraint) Constraint {
+pub fn isRef(comptime constraint: Constraint) Constraint {
     return hasTypeInfo(.{
         .{ .Pointer = .{ .size = .One } },
     }).hasChild(constraint);
 }
 
-pub fn coercesToMutSliceOf(comptime child_constraint: Constraint) Constraint {
+pub fn coercesToMutSlice(comptime child_constraint: Constraint) Constraint {
     return coercesToSliceInternal(child_constraint, false);
 }
 
-pub fn coercesToConstSliceOf(comptime child_constraint: Constraint) Constraint {
+pub fn coercesToSlice(comptime child_constraint: Constraint) Constraint {
     return coercesToSliceInternal(child_constraint, true);
 }
 
@@ -342,9 +338,8 @@ fn coercesToSliceInternal(
 // E.g:
 //
 //    pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
-//        where(@TypeOf(count_ptr), isMutPointer().hasChild(hasTypeId(.Int))),
-//        where(@TypeOf(list), coercesToConstSliceOf(
-//            is(meta.Child(@TypeOf(count_ptr)))))
+//        where(@TypeOf(count_ptr), isMutReference(hasTypeId(.Int))),
+//        where(@TypeOf(list), coercesToSlice(is(Child(@TypeOf(count_ptr)))))
 //    }) {
 //        for (list) |elem| {
 //            count_ptr.* += elem;
@@ -353,11 +348,10 @@ fn coercesToSliceInternal(
 //
 // Is equivalent to:
 //
-//    pub fn sumIntSlice(count_ptr: anytype, list: anytype) void {
-//        comptime where(@TypeOf(count_ptr),
-//            isMutPointer().hasChild(hasTypeId(.Int)));
+//    pub fn sumIntSlice(count: anytype, list: anytype) void {
+//        comptime where(@TypeOf(count_ptr), isMutReference(hasTypeId(.Int)));
 //        comptime where(@TypeOf(list),
-//            coercesToConstSliceOf(meta.Child(@TypeOf(count_ptr))));
+//            coercesToSlice(is(Child(@TypeOf(count)))));
 //
 //        for (list) |elem| {
 //            count_ptr.* += elem;
@@ -448,6 +442,6 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
 } });
 
 
-test "generate docs" {
+test {
     std.testing.refAllDecls(@This());
 }

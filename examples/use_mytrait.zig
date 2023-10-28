@@ -1,10 +1,10 @@
 const std = @import("std");
 const trait = @import("mytrait.zig");
 
-pub fn addU32PackedStructs(s1: anytype, s2: anytype) trait.Returns(u32, .{
-    trait.where(@TypeOf(s1), trait.isU32PackedStruct()),
-    trait.where(@TypeOf(s2), trait.isU32PackedStruct())
-}) {
+pub fn addU32PackedStructs(s1: anytype, s2: anytype) u32 {
+    comptime trait.where(@TypeOf(s1), trait.isU32PackedStruct());
+    comptime trait.where(@TypeOf(s2), trait.isU32PackedStruct());
+
     return @as(u32, @bitCast(s1)) + @as(u32, @bitCast(s2));
 }
 

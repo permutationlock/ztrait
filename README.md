@@ -1,29 +1,37 @@
 # Zig Type Traits
 
-An attempt at implementing Rust style type traits in Zig. Using this library
-you can define traits and compile-time verify that types satisfy them.
+An attempt at implementing something along the lines of Rust type traits in Zig.
+Using this library you can define traits and compile-time verify that types
+implement them.
 
-**Note:** Nothing is done to require that every declaration referenced on a type
-must belong to a trait that was implemented. In other words: duck-typing still
-works as usual, but trait verification runs first. The library mainly
-serves as a convention that provides nice error messages and type documentation.
+You can only "implement" traits by adding declarations to a type's 
+definition, so it might be more accurate to call type classes or interfaces.
+
+**Note:** Duck-typing still works as usual, but trait verification runs first.
+The main value the library hopes to provide is nice error messages and
+a formal way to document requirements for generic type.
 
 ## Related links
 
-I read several related projects and discussion threads while implementing
-the library. Links to the things that I found most memorable and/or useful
-are provided below.
+Below are some related projects and Zig proposal threads that I read while
+implementing the library.
 
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
- - Zig proposals: [#1268](https://github.com/ziglang/zig/issues/1268), [#1669](https://github.com/ziglang/zig/issues/1669), [#6615](https://github.com/ziglang/zig/issues/6615), [#17198](https://github.com/ziglang/zig/issues/17198)
+ - Zig issues:
+   [#1268](https://github.com/ziglang/zig/issues/1268),
+   [#1669](https://github.com/ziglang/zig/issues/1669),
+   [#6615](https://github.com/ziglang/zig/issues/6615),
+   [#17198](https://github.com/ziglang/zig/issues/17198)
 
-I don't have any strong position on the above proposals. I respect the Zig team's
-reasoning for keeping the type system simple.
+I don't have any strong position on proposed changes to the Zig language
+regarding generics, and I respect the Zig team's reasoning for keeping the
+type system simple.
 
 ## Basic use
 
-A trait is simply a comptime function taking a type and returning a struct type.
-Each declaration of the returned struct defines a required declaration that the
+A trait is simply a comptime function taking a type and returning a struct type
+containing only declarations.
+Each declaration of the returned struct is a required declaration that a
 type must have if it implements the trait. 
 
 Below is a trait that requires implementing types to define an integer
@@ -72,6 +80,7 @@ need to add a comptime verification line at the start of your function.
 ```Zig
 pub fn countToTen(comptime Counter: type) void {
     comptime where(Counter, implements(Incrementable));
+
     var counter = Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -186,6 +195,7 @@ pub fn HasIncrementable(comptime _: type) type {
 ```Zig
 pub fn useHolderToCountToTen(comptime T: type) void {
     comptime where(T, implements(HasIncrementable));
+
     var counter = T.Counter.init();
     while (counter.read() < 10) {
         counter.increment();
@@ -253,21 +263,26 @@ pub fn incrementAll(list: anytype) usize {
 }
 ```
 
-The example above is quite verbose, and also couldn't accept parameters like `*[_]T`
-that coerce to `[]T`. Luckily it is quite simple to create helper functions
-to make things more functional and readable.
-The `coercesToMutSliceOf` helper verifies that a type
-can coerce to a slice type `[]T` where `T` is further constrained.
+The example above is quite verbose and also it will reject a parameter of
+type `*[_]T` that could coerce to `[]T`. Luckily it is quite simple to create
+helper functions to hide some of these complicated constructions. For example,
+the library provides `coercesToSlice` and `coercesToMutSlice` which will
+assert that a type can coerce to a slice type `[]const T` or `[]T` respectively,
+where the child type `T` satisfies the constraint passed as an argument.
 
 ```Zig
 pub fn incrementAll(list: anytype) usize {
-    comptime where(@TypeOf(list), coercesToMutSliceOf(implements(Incrementable)));
+    comptime where(@TypeOf(list), coercesToMutSlice(implements(Incrementable)));
 
     for (list) |*counter| {
         counter.increment();
     }
 }
 ```
+
+**Warning:** The type is not actually coerced here, it just verifies
+that coercion is allowed. Therefore it can be preferable to simply
+take the Incrementable type as a comptime argument.
 
 Users can define their own helper functions as needed by expanding
 the trait module
@@ -293,11 +308,11 @@ pub fn isU32PackedStruct() trait.Constraint {
 Sometimes it can be useful to have type signatures directly in function
 definitions. Zig currently does not support this, but there is a hacky
 workaround using the fact that Zig can evaluate a `comptime` function in
-the return value.
+the return type location.
 
 ```Zig
 pub fn incrementAll(list: anytype) Returns(void, .{
-    where(@TypeOf(list), coercesToMutSliceOf(implements(Incrementable)))
+    where(@TypeOf(list), coercesToMutSlice(implements(Incrementable)))
 }) {
     for (list) |*counter| {
         counter.increment();
@@ -317,22 +332,34 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 Multiple `where` statements can be evaluated.
 
 ```Zig
-pub fn countToTen(comptime T: type, comptime U: type) Returns(void, .{
-    where(T, implements(Incrementable)),
-    where(U, implements(Incrementable))
+pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
+    where(@TypeOf(count_ptr), isMutRef(hasTypeId(.Int))),
+    where(@TypeOf(list), coercesToSlice(is(meta.Child(@TypeOf(count_ptr)))))
 }) {
-    var counter1 = T.init();
-    while (counter1.read() < 10) {
-        var counter2 = U.init();
-        while (counter2.read() < 10) {
-            counter2.increment();
-        }
-        counter1.increment();
+    for (list) |elem| {
+        count_ptr.* += elem;
     }
 }
 ```
 
-**Note:** error messages can be less helpful when using `Returns`
-because the compile error happens before the function is even
-generated. Therefore the call site generating the error is not
-reported when building with `-freference-trace`.
+While the above is just showing what is possible, you should probably never
+actually write code this way. It would be far better to take a type parameter
+as shown below.
+
+
+```Zig
+pub fn sumIntSlice(comptime I: type, list: []const  I) Returns(I, .{
+    where(I, hasTypeId(.Int)),
+}) {
+    var count: I = 0;
+    for (list) |elem| {
+        count += elem;
+    }
+    return count;
+}
+```
+
+**Warning:** Error messages can be less helpful when using `Returns`
+because the compile error occurs before the function is even
+generated. Therefore the call line number of the call site generating
+the trait error will not be reported when building with `-freference-trace`.
