@@ -3,7 +3,6 @@ const trait = @import("trait");
 
 const where = trait.where;
 const implements = trait.implements;
-const implementsAll = trait.implementsAll;
 const hasTypeId = trait.hasTypeId;
 const hasTypeInfo = trait.hasTypeInfo;
 
@@ -21,6 +20,13 @@ pub fn HasDimensions(comptime _: type) type {
     return struct {
         pub const width = comptime_int;
         pub const height = comptime_int;
+    };
+}
+
+pub fn IncrementableWithDimensions(comptime Type: type) type {
+    return struct {
+        pub usingnamespace Incrementable(Type);
+        pub usingnamespace HasDimensions(Type);
     };
 }
 
@@ -192,7 +198,8 @@ pub fn computeArea(comptime T: type) comptime_int {
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    comptime where(T, implementsAll(.{ Incrementable, HasDimensions }));
+    comptime where(T, implements(IncrementableWithDimensions));
+
     var counter = T.init();
     while (counter.read() < T.width * T.height) {
         counter.increment();

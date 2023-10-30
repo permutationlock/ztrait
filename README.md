@@ -4,8 +4,8 @@ An attempt at implementing something along the lines of Rust type traits in Zig.
 Using this library you can define traits and compile-time verify that types
 implement them.
 
-You can only "implement" traits by adding declarations to a type's 
-definition, so it might be more accurate to call type classes or interfaces.
+You can only "implement" traits by adding declarations to a type's definition,
+so it might be more accurate to call them type classes or interfaces.
 
 **Note:** Duck-typing still works as usual, but trait verification runs first.
 The main value the library hopes to provide is nice error messages and
@@ -180,8 +180,8 @@ examples/count.zig:182:19: note: called from here
 
 ## Constraining subtypes
 
-Traits can require each implementing type to declare subtypes
-that are constrained by further traits.
+Traits can require typese to declare subtypes
+that are constrained traits.
 
 ```Zig
 pub fn HasIncrementable(comptime _: type) type {
@@ -246,106 +246,12 @@ test {
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
-## Pointers and slices with `anytype`
-
-With the ability to verify `@typeInfo` properties as well, we can constrain
-`anytype` parameters to be pointers to types implementing traits. The
-following function takes a mutable slice `[]T` where `T` implements
-the `Incrementable` interface from above.
-
-```Zig
-pub fn incrementAll(list: anytype) usize {
-    comptime where(@TypeOf(list), hasTypeInfo(.{ .Pointer = .{ .size = .Slice, .is_const = false } }).hasChild(implements(Incrementable)));
-
-    for (list) |*counter| {
-        counter.increment();
-    }
-}
-```
-
-The example above is quite verbose and also it will reject a parameter of
-type `*[_]T` that could coerce to `[]T`. Luckily it is quite simple to create
-helper functions to hide some of these complicated constructions. For example,
-the library provides `coercesToSlice` and `coercesToMutSlice` which will
-assert that a type can coerce to a slice type `[]const T` or `[]T` respectively,
-where the child type `T` satisfies the constraint passed as an argument.
-
-```Zig
-pub fn incrementAll(list: anytype) usize {
-    comptime where(@TypeOf(list), coercesToMutSlice(implements(Incrementable)));
-
-    for (list) |*counter| {
-        counter.increment();
-    }
-}
-```
-
-**Warning:** The type is not actually coerced here, it just verifies
-that coercion is allowed. Therefore it can be preferable to simply
-take the Incrementable type as a comptime argument.
-
-Users can define their own helper functions as needed by expanding
-the trait module
-
-```Zig
-// mytrait.zig
-
-const trait = @import("trait");
-pub usingnamespace trait;
-
-pub fn isU32PackedStruct() trait.Constraint {
-    return trait.hasTypeInfo(.{
-        .Struct = .{
-            .layout = .Packed,
-            .backing_integer = u32,
-        }
-    });
-}
-```
-
 ## Traits in function definitions: 'Returns' syntax
 
 Sometimes it can be useful to have type signatures directly in function
 definitions. Zig currently does not support this, but there is a hacky
 workaround using the fact that Zig can evaluate a `comptime` function in
 the return type location.
-
-```Zig
-pub fn incrementAll(list: anytype) Returns(void, .{
-    where(@TypeOf(list), coercesToMutSlice(implements(Incrementable)))
-}) {
-    for (list) |*counter| {
-        counter.increment();
-    }
-}
-```
-
-The first parameter of `Returns` is the actual return type of the function,
-while the second is an unreferenced `anytype` parameter.
-
-```Zig
-pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
-    return ReturnType;
-}
-```
-
-Multiple `where` statements can be evaluated.
-
-```Zig
-pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
-    where(@TypeOf(count_ptr), isMutRef(hasTypeId(.Int))),
-    where(@TypeOf(list), coercesToSlice(is(meta.Child(@TypeOf(count_ptr)))))
-}) {
-    for (list) |elem| {
-        count_ptr.* += elem;
-    }
-}
-```
-
-While the above is just showing what is possible, you should probably never
-actually write code this way. It would be far better to take a type parameter
-as shown below.
-
 
 ```Zig
 pub fn sumIntSlice(comptime I: type, list: []const  I) Returns(I, .{
@@ -359,7 +265,80 @@ pub fn sumIntSlice(comptime I: type, list: []const  I) Returns(I, .{
 }
 ```
 
+The first parameter of `Returns` is the actual return type of the function,
+while the second is an unreferenced `anytype` parameter.
+
+```Zig
+pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
+    return ReturnType;
+}
+```
+
 **Warning:** Error messages can be less helpful when using `Returns`
 because the compile error occurs before the function is even
 generated. Therefore the call line number of the call site generating
 the trait error will not be reported when building with `-freference-trace`.
+
+## Pointer and slice parameters using `anytype`
+
+We can constrain `anytype` parameters to be pointer types that dereference
+to types implementing traits.
+
+```Zig
+pub fn countToTen(counter: anytype) void {
+    comptime where(@TypeOf(counter), hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
+    comptime where(Child(@TypeOf(counter)), implements(Incrementable));
+
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+The `trait.Child` helper funciton is simply `std.meta.Child`. In the case that
+`T` is a pointer type, `Child(T)` grabs the type that the pointer dereferences
+to.
+
+Slice types are slightly more complicated because we usually want to
+allow for type coercion, and this doesn't happen with anytype. A workaround
+is to use the `SliceChild` helper function to grab the child type of
+any type that can coerce to a slice, and then call a helper function
+to perform the coercion.
+
+```Zig
+pub fn incrementAll(list: anytype) void {
+    incrementAllInt(SliceChild(@TypeOf(list)), list);
+}
+
+fn incrementAllInt(comptime Counter: type, list: []Counter) void {
+    comptime where(Counter, implements(Incrementable));
+
+    for (list) |*counter| {
+        counter.increment();
+    }
+}
+```
+
+**Note:** We must use the custom `trait.SliceChild` helper function
+instead of `std.meta.Child` because it might be that `T = *[n]U` in
+which case `Child(T) = [n]U` and not `U`.
+
+Users can define their own helper functions as needed by expanding
+the trait module
+
+```Zig
+// mytrait.zig
+
+const trait = @import("trait");
+const where = trait.where;
+const hasTypeInfo = trait.hasTypeInfo;
+
+pub usingnamespace trait;
+
+pub fn BackingInteger(comptime Type: type) type {
+    comptime where(Type, hasTypeInfo(.{ .Struct = .{ .layout = .Packed } }));
+
+    return @typeInfo(Type).Struct.backing_integer.?;
+}
+```
+

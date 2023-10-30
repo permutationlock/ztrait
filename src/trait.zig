@@ -4,18 +4,12 @@ const std = @import("std");
 // Core Functionality
 // ------------------
 
-pub const TraitFn = fn (type) type;
+pub const TraitFn = *const fn (type) type;
 
 pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
-    comptime {
-        if (constraint.check(T)) |reason| {
-            @compileError(reason);
-        }
+    if (constraint.check(T)) |reason| {
+        @compileError(reason);
     }
-}
-
-pub fn is(comptime enforced_type: type) Constraint {
-    return .{ .enforced_type = enforced_type };
 }
 
 pub fn isAny() Constraint {
@@ -30,30 +24,19 @@ pub fn hasTypeInfo(comptime info: TypeInfo) Constraint {
     return isAny().hasTypeInfo(info);
 }
 
-pub fn hasOneOfTypeInfo(comptime infos: anytype) Constraint {
-    return isAny().hasOneOfTypeInfo(infos);
-}
-
 pub fn implements(comptime trait: TraitFn) Constraint {
     return isAny().implements(trait);
-}
-
-pub fn implementsAll(comptime traits: anytype) Constraint {
-    return isAny().implementsAll(traits);
-}
-
-pub fn hasChild(comptime constraint: Constraint) Constraint {
-    return isAny().hasChild(constraint);
 }
 
 pub const Constraint = struct {
     const Self = @This();
 
-    enforced_type: ?type = null,
+    and_constraint: ?* const Constraint = null,
     or_constraint: ?*const Constraint = null,
-    child_constraint: ?*const Constraint = null,
-    infos: []TypeInfo = &[0]TypeInfo{},
-    traits: []const *const TraitFn = &[0]*const TraitFn{},
+    requirement: ?union(enum) {
+        info: TypeInfo,
+        trait: TraitFn,
+    } = null,
 
     pub fn hasTypeId(comptime self: Self, comptime id: TypeId) Self {
         return self.hasTypeInfo(
@@ -62,29 +45,23 @@ pub const Constraint = struct {
     }
 
     pub fn hasTypeInfo(comptime self: Self, comptime info: TypeInfo) Self {
-        return self.hasOneOfTypeInfo(.{info});
+        var constraint = self;
+        constraint.requirement = .{ .info = info };
+        return constraint;
     }
 
-    pub fn hasOneOfTypeInfo(comptime self: Self, comptime infos: anytype) Self {
+    pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
         comptime {
-            const fields = @typeInfo(@TypeOf(infos)).Struct.fields;
-            var infoArray: [self.infos.len + fields.len]TypeInfo = undefined;
-            inline for (fields, infoArray[0..fields.len]) |fld, *info| {
-                info.* = @field(infos, fld.name);
-            }
-            inline for (self.infos, infoArray[fields.len..]) |i, *info| {
-                info.* = i;
-            }
             var constraint = self;
-            constraint.infos = &infoArray;
+            constraint.requirement = .{ .trait = trait };
             return constraint;
         }
     }
 
-    pub fn hasChild(comptime self: Self, comptime sub_constraint: Self) Self {
+    pub fn andAlso(comptime self: Self, comptime sub_constraint: Self) Self {
         comptime {
             var constraint = self;
-            constraint.child_constraint = &sub_constraint;
+            constraint.and_constraint = &sub_constraint;
             return constraint;
         }
     }
@@ -97,158 +74,105 @@ pub const Constraint = struct {
         }
     }
 
-    pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
-        return self.implementsAll(.{trait});
-    }
-
-    pub fn implementsAll(comptime self: Self, comptime traits: anytype) Self {
-        const fields = @typeInfo(@TypeOf(traits)).Struct.fields;
-        comptime {
-            var traitArray: [self.traits.len + fields.len]*const TraitFn
-                = undefined;
-            inline for (fields, traitArray[0..fields.len]) |fld, *traitFn| {
-                traitFn.* = &@field(traits, fld.name);
-            }
-            inline for (self.traits, traitArray[fields.len..]) |t, *traitFn| {
-                traitFn.* = t;
-            }
-            var constraint = self;
-            constraint.traits = &traitArray;
-            return constraint;
-        }
-    }
-
     pub fn check(comptime self: Self, comptime Type: type) ?[]const u8 {
-        if (self.enforced_type) |ET| {
-            if (Type != ET) {
-                return std.fmt.comptimePrint(
-                    "expected '{}', found '{}'",
-                    .{ ET, Type }
-                );
-            } else {
-                return null;
-            }
-        }
         if (self.or_constraint) |constraint| {
             if (constraint.check(Type) == null) {
                 return null;
             }
         }
-
-        const type_info = @typeInfo(Type);
-        const type_id: TypeId = @enumFromInt(@intFromEnum(type_info));
-        const type_name = getTypeFieldName(type_id);
-        const spec_info = @field(type_info, type_name);
-
-        // verify type info
-        var tid_match: bool = false;
-        var tinfo_err: ?[]const u8 = null;
-        for (self.infos) |exp_info| {
-            const exp_id: TypeId = exp_info;
-            if (exp_id != type_id) {
-                continue;
-            }
-            tid_match = true;
-            tinfo_err = null;
-            const exp = @field(exp_info, type_name);
-            const exp_fields = @typeInfo(@TypeOf(exp)).Struct.fields;
-            inline for (exp_fields) |fld_info| {
-                const maybe_exp_fld = @field(exp, fld_info.name);
-                if (maybe_exp_fld) |exp_fld| {
-                    const act_fld = @field(spec_info, fld_info.name);
-                    if (exp_fld != act_fld) {
-                        tinfo_err = std.fmt.comptimePrint(
-                            "bad value for '@typeInfo({}).{s}.{s}': "
-                                ++ "expected '{}', found '{}'",
-                                .{
-                                    Type,
-                                    type_name,
-                                    fld_info.name,
-                                    exp_fld,
-                                    act_fld
-                                });
-                        break;
-                    }
-                }
-            }
-        }
-        if (!tid_match) {
-            if (self.infos.len == 1) {
-                return std.fmt.comptimePrint(
-                    "expected '{}', found '{}'",
-                    .{ @as(TypeId, self.infos[0]), type_id }
-                );
-            } else if (self.infos.len > 1) {
-                const tids: [self.infos.len]TypeId = undefined;
-                for (self.infos, &tids) |info, *tid| {
-                    tid.* = @as(TypeId, info);
-                }
-                return std.fmt.comptimePrint(
-                    "expected one of '{any}', found '{}'",
-                    .{ tids, type_id }
-                );
-            }
-        } else if (tinfo_err) |err| {
-            return err;
-        }
-
-        // verify traits
-        if (self.traits.len > 0) {
-            if (!@hasField(@TypeOf(spec_info), "decls")) {
-                return std.fmt.comptimePrint(
-                    "type '{}' cannot implement traits: "
-                        ++ "'@typeInfo({}).{s}' missing field 'decls'",
-                    .{ Type, Type, type_name });
-            }
-        }
-        inline for (self.traits) |trait| {
-            const TraitStruct = trait.*(Type);
-            const prelude = std.fmt.comptimePrint(
-                "trait '{}' failed",
-                .{TraitStruct}
-            );
-            inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
-                if (!@hasDecl(Type, decl.name)) {
-                    return prelude ++ ": missing decl '" ++ decl.name ++ "'";
-                }
-            }
-            inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
-                const FieldType = @field(TraitStruct, decl.name);
-                const fld = @field(Type, decl.name);
-
-                if (@TypeOf(FieldType) == Constraint) {
-                    if (FieldType.check(fld)) |reason| {
-                        return std.fmt.comptimePrint(
-                            "{s}: decl '{s}': {s}",
-                            .{ prelude, decl.name, reason }
-                        );
-                    }
-                } else if (@TypeOf(fld) != FieldType) {
-                    return std.fmt.comptimePrint(
-                        "{s}: decl '{s}': expected '{}', found '{}'",
-                        .{ prelude, decl.name, FieldType, @TypeOf(fld) }
-                    );
-                }
+        if (self.and_constraint) |constraint| {
+            if (constraint.check(Type)) |reason| {
+                return reason;
             }
         }
 
-        // verify constraints on child type
-        if (self.child_constraint) |constraint| {
-            if (@hasField(@TypeOf(spec_info), "child")) {
-                if (constraint.*.check(spec_info.child)) |reason| {
-                    return reason;
-                }
-            } else {
-                return std.fmt.comptimePrint(
-                    "'@typeInfo({}).{s}' has no field 'child'",
-                    .{ Type, type_name }
-                );
+        if (self.requirement) |requirement| {
+            switch (requirement) {
+                .info => |info| return checkInfo(Type, info),
+                .trait => |trait| return checkTrait(Type, trait)
             }
         }
 
         return null;
     }
 };
+
+fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
+    const type_info = @typeInfo(Type);
+    const type_id: TypeId = @enumFromInt(@intFromEnum(type_info));
+    const type_name = getTypeFieldName(type_id);
+    const spec_info = @field(type_info, type_name);
+
+    const exp_id: TypeId = exp_info;
+    if (exp_id != type_id) {
+        return std.fmt.comptimePrint(
+            "expected '{}', found '{}'",
+            .{ exp_id, type_id }
+        );
+    }
+    const exp = @field(exp_info, type_name);
+    const exp_fields = @typeInfo(@TypeOf(exp)).Struct.fields;
+    inline for (exp_fields) |fld_info| {
+        const maybe_exp_fld = @field(exp, fld_info.name);
+        if (maybe_exp_fld) |exp_fld| {
+            const act_fld = @field(spec_info, fld_info.name);
+            if (exp_fld != act_fld) {
+                return std.fmt.comptimePrint(
+                    "bad value for '@typeInfo({}).{s}.{s}': "
+                        ++ "expected '{}', found '{}'",
+                    .{ Type, type_name, fld_info.name, exp_fld, act_fld }
+                );
+            }
+        }
+    }
+
+    return null;
+}
+
+fn checkTrait(comptime Type: type, comptime trait: TraitFn) ?[]const u8 {
+    const type_info = @typeInfo(Type);
+    const type_id: TypeId = @enumFromInt(@intFromEnum(type_info));
+    const type_name = getTypeFieldName(type_id);
+    const spec_info = @field(type_info, type_name);
+
+    if (!@hasField(@TypeOf(spec_info), "decls")) {
+        return std.fmt.comptimePrint(
+            "type '{}' cannot implement traits: "
+                ++ "'@typeInfo({}).{s}' missing field 'decls'",
+            .{ Type, Type, type_name });
+    }
+
+    const TraitStruct = trait.*(Type);
+    const prelude = std.fmt.comptimePrint(
+        "trait '{}' failed",
+        .{TraitStruct}
+    );
+    inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
+        if (!@hasDecl(Type, decl.name)) {
+            return prelude ++ ": missing decl '" ++ decl.name ++ "'";
+        }
+    }
+    inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
+        const FieldType = @field(TraitStruct, decl.name);
+        const fld = @field(Type, decl.name);
+
+        if (@TypeOf(FieldType) == Constraint) {
+            if (FieldType.check(fld)) |reason| {
+                return std.fmt.comptimePrint(
+                    "{s}: decl '{s}': {s}",
+                    .{ prelude, decl.name, reason }
+                );
+            }
+        } else if (@TypeOf(fld) != FieldType) {
+            return std.fmt.comptimePrint(
+                "{s}: decl '{s}': expected '{}', found '{}'",
+                .{ prelude, decl.name, FieldType, @TypeOf(fld) }
+            );
+        }
+    }
+
+    return null;
+}
 
 
 // ---------------------
@@ -282,47 +206,32 @@ pub fn isContainerPacked() Constraint {
 fn isContainerInternal(
     comptime layout: ?std.builtin.Type.ContainerLayout
 ) Constraint {
-    return hasOneOfTypeInfo(.{
-        .{ .Struct = .{ .layout = layout } },
-        .{ .Union = .{ .layout = layout } },
-    });
+    return hasTypeInfo(.{ .Struct = .{ .layout = layout } })
+        .orElse(hasTypeInfo(.{ .Union = .{ .layout = layout } }));
 }
 
-pub fn isMutRef(comptime constraint: Constraint) Constraint {
-    return hasTypeInfo(.{
-        .Pointer = .{ .size = .One, .is_const = false },
-    }).hasChild(constraint);
-}
+pub const Child = std.meta.Child;
 
-pub fn isRef(comptime constraint: Constraint) Constraint {
-    return hasTypeInfo(.{
-        .{ .Pointer = .{ .size = .One } },
-    }).hasChild(constraint);
-}
-
-pub fn coercesToMutSlice(comptime child_constraint: Constraint) Constraint {
-    return coercesToSliceInternal(child_constraint, false);
-}
-
-pub fn coercesToSlice(comptime child_constraint: Constraint) Constraint {
-    return coercesToSliceInternal(child_constraint, true);
-}
-
-fn coercesToSliceInternal(
-    comptime child_constraint: Constraint,
-    comptime is_const: bool
-) Constraint {
-    return isAny().hasTypeInfo(.{
-        .Pointer = .{
-            .size = .One,
-            .is_const = if (is_const) true else null,
-        }
-    }).hasChild(
-        hasTypeId(.Array).hasChild(child_constraint)
-    ).orElse(
-        isAny().hasTypeInfo(.{ .Pointer = .{ .size = .Slice } })
-            .hasChild(child_constraint)
-    );
+pub fn SliceChild(comptime Type: type) type {
+    switch (@typeInfo(Type)) {
+        .Pointer => |info| {
+            switch (info.size) {
+                .One => {
+                    switch (@typeInfo(info.child)) {
+                        .Array => |array_info| return array_info.child,
+                        else => {},
+                    }
+                },
+                .Slice => return info.child,
+                else => {},
+            }
+        },
+        else => {},
+    }
+    @compileError(std.fmt.comptimePrint(
+        "type '{}' cannot coerce to a slice",
+        .{ Type }
+    ));
 }
 
 
