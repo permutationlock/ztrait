@@ -317,7 +317,7 @@ pub fn incrementAll(list: anytype) void {
         }
     }.f;
 
-    incrementAllInt(SliceChild(@TypeOf(list)), list);
+    incFunc(SliceChild(@TypeOf(list)), list);
 }
 ```
 
