@@ -4,7 +4,7 @@ const Builder = std.build.Builder;
 const Example = struct { name: []const u8, path: []const u8 };
 const paths = [_]Example{
     .{ .name = "count", .path = "examples/count.zig" },
-    .{ .name = "returns", .path = "examples/returns.zig" },
+    .{ .name = "slices", .path = "examples/slices.zig" },
     .{ .name = "mytrait", .path = "examples/use_mytrait.zig" },
 };
 

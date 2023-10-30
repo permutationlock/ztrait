@@ -307,15 +307,17 @@ to perform the coercion.
 
 ```Zig
 pub fn incrementAll(list: anytype) void {
+    const incFunc = struct {
+        fn f(comptime Counter: type, list: []Counter) void {
+            comptime where(Counter, implements(Incrementable));
+
+            for (list) |*counter| {
+                counter.increment();
+            }
+        }
+    }.f;
+
     incrementAllInt(SliceChild(@TypeOf(list)), list);
-}
-
-fn incrementAllInt(comptime Counter: type, list: []Counter) void {
-    comptime where(Counter, implements(Incrementable));
-
-    for (list) |*counter| {
-        counter.increment();
-    }
 }
 ```
 
@@ -324,7 +326,7 @@ instead of `std.meta.Child` because it might be that `T = *[n]U` in
 which case `Child(T) = [n]U` and not `U`.
 
 Users can define their own helper functions as needed by expanding
-the trait module
+the trait module.
 
 ```Zig
 // mytrait.zig

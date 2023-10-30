@@ -7,17 +7,19 @@ const hasTypeId = trait.hasTypeId;
 
 pub fn sumIntSlice(list: anytype) SliceChild(@TypeOf(list)) {
     comptime where(SliceChild(@TypeOf(list)), hasTypeId(.Int));
+    const sumFunc = struct {
+        fn f(comptime I: type, slice: []const  I) I {
+            var count: I = 0;
+            for (slice) |elem| {
+                count += elem;
+            }
+            return count;
+        }
+    }.f;
 
-    return sumSliceInt(SliceChild(@TypeOf(list)), list);
+    return sumFunc(SliceChild(@TypeOf(list)), list);
 }
 
-fn sumSlice(comptime I: type, list: []const  I) I {
-    var count: I = 0;
-    for (list) |elem| {
-        count += elem;
-    }
-    return count;
-}
 
 pub fn main() void {
     {
@@ -27,11 +29,11 @@ pub fn main() void {
     }
 
     // Uncomment each of the following to see the errors
-    //{
-    //    const list = [_]f32{ 1, -1, 2, -3, 5, -8, 13, -21 };
-    //    const sum = sumIntSlice(&list);
-    //    std.debug.print("sum: {d}\n", .{sum});
-    //}
+    {
+        const list = [_]f32{ 1, -1, 2, -3, 5, -8, 13, -21 };
+        const sum = sumIntSlice(&list);
+        std.debug.print("sum: {d}\n", .{sum});
+    }
     //{
     //    const list = [_]i32{ 1, -1, 2, -3, 5, -8, 13, -21 };
     //    const sum = sumIntSlice(list);

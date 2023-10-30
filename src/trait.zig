@@ -187,6 +187,14 @@ fn checkTrait(comptime Type: type, comptime trait: TraitFn) ?[]const u8 {
 //     - define additional helpers as you please
 //     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
+pub fn isConstPointer() Constraint {
+    return hasTypeInfo(.{ .Pointer = .{ .size = .One } });
+}
+
+pub fn isMutPointer() Constraint {
+    return hasTypeInfo(.{ .Pointer = .{ .size = .One, .is_const = false } });
+}
+
 pub fn isTuple() Constraint {
     return hasTypeInfo(.{ .Struct = .{ .is_tuple = true } });
 }
@@ -243,29 +251,6 @@ pub fn SliceChild(comptime Type: type) type {
 // with this method because the error happens before the function is
 // generated and thus the call site is not reported when building
 // with -freference-trace
-//
-// E.g:
-//
-//    pub fn sumIntSlice(count_ptr: anytype, list: anytype) Returns(void, .{
-//        where(@TypeOf(count_ptr), isMutReference(hasTypeId(.Int))),
-//        where(@TypeOf(list), coercesToSlice(is(Child(@TypeOf(count_ptr)))))
-//    }) {
-//        for (list) |elem| {
-//            count_ptr.* += elem;
-//        }
-//    }
-//
-// Is equivalent to:
-//
-//    pub fn sumIntSlice(count: anytype, list: anytype) void {
-//        comptime where(@TypeOf(count_ptr), isMutReference(hasTypeId(.Int)));
-//        comptime where(@TypeOf(list),
-//            coercesToSlice(is(Child(@TypeOf(count)))));
-//
-//        for (list) |elem| {
-//            count_ptr.* += elem;
-//        }
-//    }
 
 pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
     return ReturnType;
