@@ -114,11 +114,6 @@ const MyCounterMissingDecl = struct {
 
 ```Shell
 trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterMissingDecl)' failed: missing decl 'increment'
-            @compileError(reason);
-            ^~~~~~~~~~~~~~~~~~~~~
-examples/count.zig:182:19: note: called from here
-    comptime where(Counter, implements(Incrementable));
-             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ```Zig
@@ -143,40 +138,6 @@ const MyCounterInvalidType = struct {
 
 ```Shell
 trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int', found 'trait.TypeId.Struct'
-            @compileError(reason);
-            ^~~~~~~~~~~~~~~~~~~~~
-examples/count.zig:182:19: note: called from here
-    comptime where(Counter, implements(Incrementable));
-             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-```
-
-```Zig
-const MyCounterWrongFn = struct {
-    pub const Count = u32;
-
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = 0 };
-    }
-
-    pub fn increment(self: *@This(), amount: Count) void {
-        self.count += amount;
-    }
-    
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-```
-
-```Shell
-trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterWrongFn)' failed: decl 'increment': expected 'fn (*count.MyCounterWrongFn) void', found 'fn (*count.MyCounterWrongFn, u32) void'
-            @compileError(reason);
-            ^~~~~~~~~~~~~~~~~~~~~
-examples/count.zig:182:19: note: called from here
-    comptime where(Counter, implements(Incrementable));
-             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ## Combining traits
@@ -238,11 +199,6 @@ pub const InvalidCounterHolder = struct {
 
 ```Shell
 trait.zig:12:13: error: trait 'count.HasIncrementable(count.InvalidCounterHolder)' failed: decl 'Counter': trait 'count.Incrementable(count.MyCounterMissingDecl)' failed: missing decl 'increment'
-            @compileError(reason);
-            ^~~~~~~~~~~~~~~~~~~~~
-examples/count.zig:203:19: note: called from here
-    comptime where(T, implements(HasIncrementable));
-             ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 ## Declaring that a type implements a trait
