@@ -246,6 +246,100 @@ test {
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
+## Pointer and slice parameters using `anytype`
+
+We can constrain `anytype` parameters to be pointer types that dereference
+to types implementing traits.
+
+```Zig
+pub fn countToTen(counter: anytype) void {
+    comptime where(@TypeOf(counter), hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
+    comptime where(Child(@TypeOf(counter)), implements(Incrementable));
+
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+The `Child` helper funciton used above is simply `std.meta.Child`. In the case
+that `T` is a pointer type, `Child(T)` grabs the type that the pointer
+dereferences to.
+
+To make this style of type checking less verbose, a helper function
+`PointerChild` is provided that verifies a type is a single item
+pointer and extracts its child type in one call.
+
+```Zig
+pub fn countToTen(counter: anytype) void {
+    comptime where(PointerChild(@TypeOf(counter)), implements(Incrementable));
+
+    while (counter.read() < 10) {
+        counter.increment();
+    }
+}
+```
+
+Slice types are slightly more complicated because we usually want to
+allow for `*[_]T` types as well as `[]T`. In this case we have to use the
+`SliceChild` helper function
+because `Child(*[_]U)` is `[n]U` not `U`.
+The `SliceChild` function verifies that a type can coerce to a slice
+and extracts the child type.
+
+```Zig
+pub fn incrementAll(list: anytype) void {
+    comptime where(SliceChild(@TypeOf(list)), implements(Incrementable));
+
+    for (list) |*counter| {
+        counter.increment();
+    }
+}
+```
+
+The above function works directly on types that coerce to a slice,
+but if required you can actually coerce the type to a slice as shown below.
+
+```Zig
+pub fn incrementAll(list: anytype) void {
+    comptime where(SliceChild(@TypeOf(list)), implements(Incrementable));
+    
+    const slice: []SliceChild(@TypeOf(list)) = list;
+    for (slice) |*counter| {
+        counter.increment();
+    }
+}
+```
+## Extending the library to support other use cases
+
+Users can define their own helper functions as needed by wrapping
+the trait module.
+
+```Zig
+// mytrait.zig
+
+const trait = @import("trait");
+const where = trait.where;
+const hasTypeInfo = trait.hasTypeInfo;
+
+// expose all declaraions from the standard trait module
+pub usingnamespace trait;
+
+// define your own convenience functions
+pub fn BackingInteger(comptime Type: type) type {
+    comptime where(Type, hasTypeInfo(.{ .Struct = .{ .layout = .Packed } }));
+
+    return @typeInfo(Type).Struct.backing_integer.?;
+}
+```
+
+## Interfaces: restricting access to declarations
+
+Using traits with `where` and `implements` we can require that types have
+declaration satisfying certain requirements. We cannot, however,
+prevent code from using declarations beyond the scope of the trait.
+To get around this, we
+
 ## Traits in function definitions: 'Returns' syntax
 
 Sometimes it can be useful to have type signatures directly in function
@@ -276,71 +370,6 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 
 **Warning:** Error messages can be less helpful when using `Returns`
 because the compile error occurs before the function is even
-generated. Therefore the call line number of the call site generating
-the trait error will not be reported when building with `-freference-trace`.
-
-## Pointer and slice parameters using `anytype`
-
-We can constrain `anytype` parameters to be pointer types that dereference
-to types implementing traits.
-
-```Zig
-pub fn countToTen(counter: anytype) void {
-    comptime where(@TypeOf(counter), hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
-    comptime where(Child(@TypeOf(counter)), implements(Incrementable));
-
-    while (counter.read() < 10) {
-        counter.increment();
-    }
-}
-```
-
-The `trait.Child` helper funciton is simply `std.meta.Child`. In the case that
-`T` is a pointer type, `Child(T)` grabs the type that the pointer dereferences
-to.
-
-Slice types are slightly more complicated because we usually want to
-allow for type coercion, and this doesn't happen with anytype. A workaround
-is to use the `SliceChild` helper function to grab the child type of
-any type that can coerce to a slice, and then call a helper function
-to perform the coercion.
-
-```Zig
-pub fn incrementAll(list: anytype) void {
-    const incFunc = struct {
-        fn f(comptime Counter: type, list: []Counter) void {
-            comptime where(Counter, implements(Incrementable));
-
-            for (list) |*counter| {
-                counter.increment();
-            }
-        }
-    }.f;
-
-    incFunc(SliceChild(@TypeOf(list)), list);
-}
-```
-
-**Note:** We must use the custom `trait.SliceChild` helper function
-instead of `std.meta.Child` because it might be that `T = *[n]U` in
-which case `Child(T) = [n]U` and not `U`.
-
-Users can define their own helper functions as needed by expanding
-the trait module.
-
-```Zig
-// mytrait.zig
-
-const trait = @import("trait");
-const where = trait.where;
-const hasTypeInfo = trait.hasTypeInfo;
-
-pub usingnamespace trait;
-
-pub fn BackingInteger(comptime Type: type) type {
-    comptime where(Type, hasTypeInfo(.{ .Struct = .{ .layout = .Packed } }));
-
-    return @typeInfo(Type).Struct.backing_integer.?;
-}
-```
+generated. Therefore the line number of the call site generating
+the error may not be reported when building with `-freference-trace`.
 

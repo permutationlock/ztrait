@@ -13,87 +13,55 @@ pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
 }
 
 pub fn isAny() Constraint {
-    return .{};
+    return .{ .requirement = .any };
 }
 
 pub fn hasTypeId(comptime id: TypeId) Constraint {
-    return isAny().hasTypeId(id);
+    return hasTypeInfo(@unionInit(TypeInfo, getTypeFieldName(id), .{}));
 }
 
 pub fn hasTypeInfo(comptime info: TypeInfo) Constraint {
-    return isAny().hasTypeInfo(info);
+    return .{ .requirement = .{ .info = info } };
 }
 
-pub fn implements(comptime trait: TraitFn) Constraint {
-    return isAny().implements(trait);
+pub fn implements(comptime trait: anytype) Constraint {
+    comptime {
+        switch (@typeInfo(@TypeOf(trait))) {
+            .Struct => {
+                const fields = @typeInfo(@TypeOf(trait)).Struct.fields;
+                var traitArray: [fields.len]TraitFn = undefined;
+                inline for (fields, traitArray[0..fields.len]) |fld, *traitFn| {
+                    traitFn.* = @field(trait, fld.name);
+                }
+                return .{ .requirement = .{ .traits = &traitArray } };
+            },
+            .Pointer => |info| {
+                if (info.size == .Slice) {
+                    return .{ .requirement = .{ .traits = trait } };
+                }
+            },
+            else => {},
+        }
+        const fields = [1]TraitFn{trait};
+        return .{ .requirement = .{ .traits = &fields } };
+    }
 }
 
 pub const Constraint = struct {
     const Self = @This();
 
-    and_constraint: ?* const Constraint = null,
-    or_constraint: ?*const Constraint = null,
-    requirement: ?union(enum) {
+    requirement: union(enum) {
+        any: void,
         info: TypeInfo,
-        trait: TraitFn,
-    } = null,
-
-    pub fn hasTypeId(comptime self: Self, comptime id: TypeId) Self {
-        return self.hasTypeInfo(
-            @unionInit(TypeInfo, getTypeFieldName(id), .{})
-        );
-    }
-
-    pub fn hasTypeInfo(comptime self: Self, comptime info: TypeInfo) Self {
-        var constraint = self;
-        constraint.requirement = .{ .info = info };
-        return constraint;
-    }
-
-    pub fn implements(comptime self: Self, comptime trait: TraitFn) Self {
-        comptime {
-            var constraint = self;
-            constraint.requirement = .{ .trait = trait };
-            return constraint;
-        }
-    }
-
-    pub fn andAlso(comptime self: Self, comptime sub_constraint: Self) Self {
-        comptime {
-            var constraint = self;
-            constraint.and_constraint = &sub_constraint;
-            return constraint;
-        }
-    }
-
-    pub fn orElse(comptime self: Self, comptime sub_constraint: Self) Self {
-        comptime {
-            var constraint = self;
-            constraint.or_constraint = &sub_constraint;
-            return constraint;
-        }
-    }
+        traits: []const TraitFn,
+    },
 
     pub fn check(comptime self: Self, comptime Type: type) ?[]const u8 {
-        if (self.or_constraint) |constraint| {
-            if (constraint.check(Type) == null) {
-                return null;
-            }
-        }
-        if (self.and_constraint) |constraint| {
-            if (constraint.check(Type)) |reason| {
-                return reason;
-            }
-        }
-
-        if (self.requirement) |requirement| {
-            switch (requirement) {
-                .info => |info| return checkInfo(Type, info),
-                .trait => |trait| return checkTrait(Type, trait)
-            }
-        }
-
-        return null;
+        return switch (self.requirement) {
+            .any => null,
+            .info => |info| checkInfo(Type, info),
+            .traits => |list| checkTraitList(Type, list),
+        };
     }
 };
 
@@ -129,7 +97,17 @@ fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
     return null;
 }
 
-fn checkTrait(comptime Type: type, comptime trait: TraitFn) ?[]const u8 {
+fn checkTraitList(comptime Type: type, comptime list: []const TraitFn) ?[]const u8 {
+    for (list) |Trait| {
+        if (checkTrait(Type, Trait)) |reason| {
+            return reason;
+        }
+    }
+
+    return null;
+}
+
+fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
     const type_info = @typeInfo(Type);
     const type_id: TypeId = @enumFromInt(@intFromEnum(type_info));
     const type_name = getTypeFieldName(type_id);
@@ -142,7 +120,7 @@ fn checkTrait(comptime Type: type, comptime trait: TraitFn) ?[]const u8 {
             .{ Type, Type, type_name });
     }
 
-    const TraitStruct = trait.*(Type);
+    const TraitStruct = Trait(Type);
     const prelude = std.fmt.comptimePrint(
         "trait '{}' failed",
         .{TraitStruct}
@@ -178,47 +156,23 @@ fn checkTrait(comptime Type: type, comptime trait: TraitFn) ?[]const u8 {
 // ---------------------
 // Convenience functions
 // ---------------------
-//   All helper functions are defined in the top-level namespace (rather than
-//   within the `Contract` type) to allow users to define their own as needed.
-//
-//   To create custom helper functions:
+//   To create your own helper functions:
 //     - create a new file, e.g. "mytrait.zig"
 //     - add the following line: `pub usingnamespace @import("trait");`
 //     - define additional helpers as you please
 //     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
-pub fn isConstPointer() Constraint {
-    return hasTypeInfo(.{ .Pointer = .{ .size = .One } });
-}
-
-pub fn isMutPointer() Constraint {
-    return hasTypeInfo(.{ .Pointer = .{ .size = .One, .is_const = false } });
-}
-
 pub fn isTuple() Constraint {
     return hasTypeInfo(.{ .Struct = .{ .is_tuple = true } });
 }
 
-pub fn isContainer() Constraint {
-    return isContainerInternal(null);
-}
-
-pub fn isContainerExtern() Constraint {
-    return isContainerInternal(.Extern);
-}
-
-pub fn isContainerPacked() Constraint {
-    return isContainerInternal(.Packed);
-}
-
-fn isContainerInternal(
-    comptime layout: ?std.builtin.Type.ContainerLayout
-) Constraint {
-    return hasTypeInfo(.{ .Struct = .{ .layout = layout } })
-        .orElse(hasTypeInfo(.{ .Union = .{ .layout = layout } }));
-}
-
 pub const Child = std.meta.Child;
+
+pub fn PointerChild(comptime Type: type) type {
+    comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
+    
+    return @typeInfo(Type).Pointer.child;
+}
 
 pub fn SliceChild(comptime Type: type) type {
     switch (@typeInfo(Type)) {
@@ -254,6 +208,91 @@ pub fn SliceChild(comptime Type: type) type {
 
 pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
     return ReturnType;
+}
+
+
+// *********************************
+// v Some @Type madness lies below v
+// *********************************
+
+// ----------
+// Interfaces
+// ----------
+// Interfaces convert a type and a trait into an instance of a struct
+// containing a comptime field for each declaration of trait that the
+// type implements. This prevents code from accessing parts of the
+// type that are not exposed by the interface itself.
+
+pub fn Interface(
+    comptime Type: type,
+    comptime traits: anytype
+) InterfaceType(Type, implements(traits).requirement.traits) {
+    return .{};
+}
+
+fn InterfaceType(comptime Type: type, comptime traits: []const TraitFn) type {
+    comptime where(Type, implements(traits));
+
+    comptime {
+        const Trait = Join(traits);
+        const trait_info = @typeInfo(Trait(Type)).Struct;
+        const trait_decls = trait_info.decls;
+        var fields: [trait_decls.len]std.builtin.Type.StructField = undefined;
+
+        for (&fields, trait_decls) |*fld, decl| {
+            const traitDecl = @field(Trait(Type), decl.name);
+            const typeDecl = @field(Type, decl.name);
+            fld.*.name = decl.name;
+            fld.*.alignment = 1;
+            fld.*.is_comptime = true;
+            //if (@TypeOf(traitDecl) == Constraint) {
+            //    switch (traitDecl.requirement) {
+            //        .traits => |sub_traits| {
+            //            const SubIfc = InterfaceType(typeDecl, sub_traits){};
+            //            fld.*.type = @TypeOf(SubIfc);
+            //            fld.*.default_value = &SubIfc;
+            //            continue;
+            //        },
+            //        else => {},
+            //    }
+            //}
+            fld.*.type = @TypeOf(typeDecl);
+            fld.*.default_value = &typeDecl;
+            
+        }
+        return @Type(std.builtin.Type{ .Struct = .{
+            .layout = .Auto,
+            .backing_integer = null,
+            .fields = &fields,
+            .decls = &[0]std.builtin.Type.Declaration{},
+            .is_tuple = false,
+        }});
+    }
+}
+
+fn Join(comptime traits: []const TraitFn) TraitFn {
+    const S = struct {
+        fn f (comptime _: type) type { return struct {}; }
+    };
+    return JoinInternal(S.f, traits);
+}
+
+fn JoinInternal(
+    comptime Trait: TraitFn,
+    comptime traits: []const TraitFn
+) TraitFn {
+    if (traits.len == 0) {
+        return Trait;
+    }
+    const S = struct {
+        fn f (comptime Type: type) type {
+            return struct {
+                pub usingnamespace Trait(Type);
+                pub usingnamespace traits[0](Type);
+            };
+        }
+    };
+    return JoinInternal(S.f, traits[1..]);
 }
 
 
@@ -335,7 +374,3 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
     .decls = &[0]std.builtin.Type.Declaration{},
 } });
 
-
-test {
-    std.testing.refAllDecls(@This());
-}

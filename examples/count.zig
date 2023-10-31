@@ -198,7 +198,7 @@ pub fn computeArea(comptime T: type) comptime_int {
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    comptime where(T, implements(IncrementableWithDimensions));
+    comptime where(T, trait.implements(.{ Incrementable, HasDimensions }));
 
     var counter = T.init();
     while (counter.read() < T.width * T.height) {

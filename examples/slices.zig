@@ -6,18 +6,14 @@ const where = trait.where;
 const hasTypeId = trait.hasTypeId;
 
 pub fn sumIntSlice(list: anytype) SliceChild(@TypeOf(list)) {
-    comptime where(SliceChild(@TypeOf(list)), hasTypeId(.Int));
-    const sumFunc = struct {
-        fn f(comptime I: type, slice: []const  I) I {
-            var count: I = 0;
-            for (slice) |elem| {
-                count += elem;
-            }
-            return count;
-        }
-    }.f;
+    const I = SliceChild(@TypeOf(list));
+    comptime where(I, hasTypeId(.Int));
 
-    return sumFunc(SliceChild(@TypeOf(list)), list);
+    var count: I = 0;
+    for (list) |elem| {
+        count += elem;
+    }
+    return count;
 }
 
 

@@ -6,6 +6,7 @@ const paths = [_]Example{
     .{ .name = "count", .path = "examples/count.zig" },
     .{ .name = "slices", .path = "examples/slices.zig" },
     .{ .name = "mytrait", .path = "examples/use_mytrait.zig" },
+    .{ .name = "interface", .path = "examples/interface.zig" },
 };
 
 pub fn build(b: *Builder) !void {
