@@ -7,9 +7,10 @@ implement them.
 You can only "implement" traits by adding declarations to a type's definition,
 so it might be more accurate to call them type classes or interfaces.
 
-**Note:** Duck-typing still works as usual, but trait verification runs first.
 The main value the library hopes to provide is nice error messages and
 a formal way to document requirements for generic type.
+Duck-typing still works as usual (unless you construct a comptime
+`Interface`, see below), but trait verification runs first.
 
 ## Related links
 
@@ -178,6 +179,28 @@ examples/count.zig:182:19: note: called from here
              ~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
+## Combining traits
+
+Multiple traits can be type checked with a single call.
+
+```Zig
+pub fn HasDimensions(comptime _: type) type {
+    return struct {
+        pub const width = comptime_int;
+        pub const height = comptime_int;
+    };
+}
+
+pub fn computeAreaAndCount(comptime T: type) void {
+    comptime where(T, trait.implements(.{ Incrementable, HasDimensions }));
+
+    var counter = T.init();
+    while (counter.read() < T.width * T.height) {
+        counter.increment();
+    }
+}
+```
+
 ## Constraining subtypes
 
 Traits can require typese to declare subtypes
@@ -337,8 +360,26 @@ pub fn BackingInteger(comptime Type: type) type {
 
 Using traits with `where` and `implements` we can require that types have
 declaration satisfying certain requirements. We cannot, however,
-prevent code from using declarations beyond the scope of the trait.
-To get around this, we
+prevent code from using declarations beyond the scope of the checked
+traits.
+
+In order to get this restriction, we can construct a comptime instance of a
+generated struct type that contains one field for each declaration of
+the type that belongs to one of the implemented traits.
+We call this generated struct instance an `Interface`.
+
+```Zig
+pub fn countToTen(comptime C: type) void {
+    const Counter = Interface(C, Incrementable);
+
+    var counter = Counter.init();
+    while (Counter.read(&counter) < 10) {
+        Counter.increment(&counter);
+    }
+}
+```
+
+Interface construction performs the same type checking as `where`.
 
 ## Traits in function definitions: 'Returns' syntax
 
@@ -369,7 +410,9 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 ```
 
 **Warning:** Error messages can be less helpful when using `Returns`
-because the compile error occurs before the function is even
-generated. Therefore the line number of the call site generating
-the error may not be reported when building with `-freference-trace`.
+or `Interface` functionality
+because the compile errors occur while a function signature is being
+generated. This can result in the line number of the original call
+not be reported unless building with `-freference-trace` (and even then
+the call site may still be obsucred in some degenerate cases).
 

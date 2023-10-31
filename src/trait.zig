@@ -13,7 +13,7 @@ pub fn where(comptime T: anytype, comptime constraint: Constraint) void {
 }
 
 pub fn isAny() Constraint {
-    return .{ .requirement = .any };
+    return .any;
 }
 
 pub fn hasTypeId(comptime id: TypeId) Constraint {
@@ -21,7 +21,7 @@ pub fn hasTypeId(comptime id: TypeId) Constraint {
 }
 
 pub fn hasTypeInfo(comptime info: TypeInfo) Constraint {
-    return .{ .requirement = .{ .info = info } };
+    return .{ .info = info };
 }
 
 pub fn implements(comptime trait: anytype) Constraint {
@@ -33,31 +33,27 @@ pub fn implements(comptime trait: anytype) Constraint {
                 inline for (fields, traitArray[0..fields.len]) |fld, *traitFn| {
                     traitFn.* = @field(trait, fld.name);
                 }
-                return .{ .requirement = .{ .traits = &traitArray } };
+                return .{ .traits = &traitArray };
             },
-            .Pointer => |info| {
-                if (info.size == .Slice) {
-                    return .{ .requirement = .{ .traits = trait } };
-                }
+            .Pointer => |info| if (info.size == .Slice) {
+                return .{ .traits = trait };
             },
             else => {},
         }
         const fields = [1]TraitFn{trait};
-        return .{ .requirement = .{ .traits = &fields } };
+        return .{ .traits = &fields };
     }
 }
 
-pub const Constraint = struct {
+pub const Constraint = union(enum) {
     const Self = @This();
 
-    requirement: union(enum) {
-        any: void,
-        info: TypeInfo,
-        traits: []const TraitFn,
-    },
+    any: void,
+    info: TypeInfo,
+    traits: []const TraitFn,
 
     pub fn check(comptime self: Self, comptime Type: type) ?[]const u8 {
-        return switch (self.requirement) {
+        return switch (self) {
             .any => null,
             .info => |info| checkInfo(Type, info),
             .traits => |list| checkTraitList(Type, list),
@@ -71,15 +67,16 @@ fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
     const type_name = getTypeFieldName(type_id);
     const spec_info = @field(type_info, type_name);
 
-    const exp_id: TypeId = exp_info;
-    if (exp_id != type_id) {
+    if (@as(TypeId, exp_info) != type_id) {
         return std.fmt.comptimePrint(
             "expected '{}', found '{}'",
             .{ exp_id, type_id }
         );
     }
+
     const exp = @field(exp_info, type_name);
     const exp_fields = @typeInfo(@TypeOf(exp)).Struct.fields;
+
     inline for (exp_fields) |fld_info| {
         const maybe_exp_fld = @field(exp, fld_info.name);
         if (maybe_exp_fld) |exp_fld| {
@@ -125,6 +122,7 @@ fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
         "trait '{}' failed",
         .{TraitStruct}
     );
+
     inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
         if (!@hasDecl(Type, decl.name)) {
             return prelude ++ ": missing decl '" ++ decl.name ++ "'";
@@ -226,36 +224,24 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 pub fn Interface(
     comptime Type: type,
     comptime traits: anytype
-) InterfaceType(Type, implements(traits).requirement.traits) {
+) InterfaceType(Type, traits) {
     return .{};
 }
 
-fn InterfaceType(comptime Type: type, comptime traits: []const TraitFn) type {
+fn InterfaceType(comptime Type: type, comptime traits: anytype) type {
     comptime where(Type, implements(traits));
 
     comptime {
-        const Trait = Join(traits);
+        const Trait = Join(implements(traits).traits);
         const trait_info = @typeInfo(Trait(Type)).Struct;
         const trait_decls = trait_info.decls;
         var fields: [trait_decls.len]std.builtin.Type.StructField = undefined;
 
         for (&fields, trait_decls) |*fld, decl| {
-            const traitDecl = @field(Trait(Type), decl.name);
             const typeDecl = @field(Type, decl.name);
             fld.*.name = decl.name;
             fld.*.alignment = 1;
             fld.*.is_comptime = true;
-            //if (@TypeOf(traitDecl) == Constraint) {
-            //    switch (traitDecl.requirement) {
-            //        .traits => |sub_traits| {
-            //            const SubIfc = InterfaceType(typeDecl, sub_traits){};
-            //            fld.*.type = @TypeOf(SubIfc);
-            //            fld.*.default_value = &SubIfc;
-            //            continue;
-            //        },
-            //        else => {},
-            //    }
-            //}
             fld.*.type = @TypeOf(typeDecl);
             fld.*.default_value = &typeDecl;
             
