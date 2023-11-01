@@ -5,8 +5,9 @@ my [Zig type trait library][1].
 
 ## An example situation
 
-Suppose that we are a library writer who has created a `Server` struct
-to manage a collection of TCP connections. We would like `Server`
+Suppose that we are writing a networking library and have created a
+`Server` struct
+that will accept and manage TCP connections. We would like `Server`
 to exposes a `poll` function that will poll for events on the
 server's internal collection of connnected sockets.
 
@@ -28,8 +29,8 @@ are actually best solution for this particular sceneario.
 ## Just use `anytype`
 
 Zig allows generic functions to take `anytype` parameters, generating
-a new function at compile-time for each different type of parameter
-passed. Compile time duck-typing is used to verify that the passed
+a new concrete function at compile-time for each different parameter
+type used. Compile time [duck-typing][2] is used to verify that the passed
 parameters have the required declarations and fields.
 
 A `poll` function for our `Server` struct
@@ -130,7 +131,8 @@ separate parameters.
     // ...
 ```
 
-Unfortunately, this does make calling `Server.poll` quite a bit more verbose.
+Unfortunately, while this makes requirements explicit, it also makes calling
+`Server.poll` quite a bit more verbose.
 
 ```Zig
 var server = Server{};
@@ -148,7 +150,7 @@ while (true) {
 
 ## Specific type checking with traits
 
-Lets go back to the `anytype` example, but add some immediate type
+Lets go back to the raw `anytype` method, but this time add some explicit type
 checking using traits. We can define a `Handler` trait as follows.
 
 ```Zig
@@ -161,7 +163,7 @@ pub fn Handler(comptime Type: type) type {
 }
 ```
 
-Then we can add a trait verification line at the top of `Server.poll`.
+Then we add a trait verification line at the top of `Server.poll`.
 
 ```Zig
     // ...
@@ -181,10 +183,11 @@ Then we can add a trait verification line at the top of `Server.poll`.
     // ...
 ```
 
-To someone familiar with the trait convention, this immediately
-declares the type requirements for the `handler` parameter, and
-provides nice error messages if an insufficient parameter type is
-passed.
+To someone familiar with the trait convention, it is now immediately
+clear what the type requirements are for the `handler` parameter.
+Trait verification also
+provides nice compiler error messages if a `handler` of
+an invalid type is passed to `poll`.
 
 **Note:** My trait library is obviously only one possible way to do
 explicit type checking. You could do it from basics with `if`
@@ -193,18 +196,14 @@ own conventions and helper functions.
 
 ### Bonus: trait interfaces
 
-Trait verification requires the library maker to manually make sure
-that they keep the trait definitions up to date with how types are actually
+Trait verification requires a library writer to manually make sure
+that they keep their trait definitions up to date with how types are actually
 used. If we really need to adopt a convention that forces traits to match
-with how the type is used, we can use `trait.Interface`.
+with how types that implement them are used, we can use `trait.Interface`.
 
 The `trait.Interface` comptime function takes a type `T` and a trait (or tuple
 of traits) and returns a struct instance containing one
 field for `T`'s implementation of each declaration of the trait.
-
-As long as the parameter is only accessed via the declarations of this
-interface struct, we have a guarantee that the specified trait(s)
-define "necessary and sufficient" conditions for parameter types.
 
 A version of `Server.poll` using `trait.Interface` is provided below.
 
@@ -226,5 +225,10 @@ A version of `Server.poll` using `trait.Interface` is provided below.
     // ...
 ```
 
-[1]: https://github.com/permutationlock/zig_type_traits
+As long as the `handler` parameter is only accessed via the declarations of
+the `HandlerIfc` interface struct, we have a guarantee that the `Handler` trait
+defines "necessary and sufficient" conditions for the type of
+`handler`.
 
+[1]: https://github.com/permutationlock/zig_type_traits
+[2]: https://ziglang.org/documentation/master/#Introducing-the-Compile-Time-Concept
