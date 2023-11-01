@@ -311,17 +311,21 @@ pub fn BackingInteger(comptime Type: type) type {
 }
 ```
 
-## Interfaces: restricting access to unverivied declarations
+## Interfaces: restricting access to declarations 
 
-Using traits with `where` and `implements` we can require that types have
-declaration satisfying certain requirements. We cannot, however,
+Using `where` and `implements` we can require that types have
+declaration satisfying trait requirements. We cannot, however,
 prevent code from using declarations beyond the scope of the checked
-traits.
+traits. Thus it is on the developer to keep traits up to date with how
+types are actually used.
 
-In order to get this restriction, we can construct a comptime instance of a
-generated struct type that contains one field for each declaration of
-the type that belongs to one of the implemented traits.
-We call this generated struct instance an `Interface`.
+The `Interface` function provides a method to formally restrict
+traits to be both necessary and sufficient requirements for types.
+Calling `Interface(Type, Trait)` will construct a comptime instance of a
+generated struct type that contains a field for each declaration of
+`Type` the type that has a matching declaration in `Trait`. The
+fields of this interface struct are then used in place of the
+declarations of `Type`.
 
 ```Zig
 pub fn countToTen(comptime C: type) void {
