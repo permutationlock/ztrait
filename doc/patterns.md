@@ -122,9 +122,9 @@ separate parameters.
     pub fn poll(
         self: *Self,
         handler: anytype, 
-        onOpen: fn (@TypeOf(handler), ConnectionHandle, Key) void,
-        onMessage: fn (@TypeOf(handler), ConnectionHandle, Message) void,
-        onClose: fn (@TypeOf(handler), ConnectionHandle) void
+        onOpen: fn (@TypeOf(handler), Handle) void,
+        onMessage: fn (@TypeOf(handler), Handle, Message) void,
+        onClose: fn (@TypeOf(handler), Handle) void
     ) void {
         while (self.pollForEvent()) |event| {
             switch (event) {
@@ -153,7 +153,7 @@ while (true) {
 }
 ```
 
-## Comptime type checking
+## Specific type checking with traits
 
 Lets go back to the `anytype` example, but add some immediate type
 checking using traits. We can define a `Handler` trait as follows.
@@ -188,6 +188,16 @@ Then we can add a trait verification line at the top of `Server.poll`.
     // ...
 ```
 
+To someone familiar with the trait convention, this immediately
+declares the type requirements for the `handler` parameter, and
+provides nice error messages if an insufficient parameter type is
+passed.
+
+**Note:** My trait library is obviously only one possible way to do
+explicit type checking. You could do it from basics with `if`
+and `switch` statements and the `@typeInfo` builtin, or define your
+own conventions and helper functions.
+
 ### Bonus: trait interfaces
 
 Trait verification requires the library maker to manually make sure
@@ -199,8 +209,8 @@ The `trait.Interface` comptime function takes a type `T` and a trait (or tuple
 of traits) and returns a struct instance containing one
 field for `T`'s implementation of each declaration of the trait.
 
-So long as the parameter is only accessed via the declarations of this
-interface struct, we now have a guarantee that the specified trait(s)
+As long as the parameter is only accessed via the declarations of this
+interface struct, we have a guarantee that the specified trait(s)
 define "necessary and sufficient" conditions for parameter types.
 
 A version of `Server.poll` using `trait.Interface` is provided below.
