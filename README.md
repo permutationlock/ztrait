@@ -4,13 +4,12 @@ An attempt at implementing something along the lines of Rust type traits in Zig.
 Using this library you can define traits and compile-time verify that types
 implement them.
 
-You can only "implement" traits by adding declarations to a type's definition,
-so it might be more accurate to call them type classes or interfaces.
+You can only "implement" traits by adding declarations directly to a type's
+definition, so it might be more accurate to call the traits type classes or
+interfaces.
 
 The main value the library hopes to provide is nice error messages and
 a formal way to document requirements for generic type.
-Duck-typing still works as usual (unless you construct a comptime
-`Interface`, see below), but trait verification runs first.
 
 ## Related links
 
@@ -225,10 +224,10 @@ test {
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
-## Pointer and slice parameters using `anytype`
+## Validating pointer and slice types passed as `anytype`
 
 We can constrain `anytype` parameters to be pointer types that dereference
-to types implementing traits.
+to types that implement traits.
 
 ```Zig
 pub fn countToTen(counter: anytype) void {
@@ -312,7 +311,7 @@ pub fn BackingInteger(comptime Type: type) type {
 }
 ```
 
-## Interfaces: restricting access to declarations
+## Interfaces: restricting access to unverivied declarations
 
 Using traits with `where` and `implements` we can require that types have
 declaration satisfying certain requirements. We cannot, however,
@@ -337,7 +336,7 @@ pub fn countToTen(comptime C: type) void {
 
 Interface construction performs the same type checking as `where`.
 
-## Traits in function definitions: 'Returns' syntax
+## Returns syntax: traits in function definitions
 
 Sometimes it can be useful to have type signatures directly in function
 definitions. Zig currently does not support this, but there is a hacky

@@ -24,6 +24,7 @@ pub fn hasTypeInfo(comptime info: TypeInfo) Constraint {
     return .{ .info = info };
 }
 
+// Expects TraitFn, []const TraitFn, or a tuple with each field a TraitFn
 pub fn implements(comptime trait: anytype) Constraint {
     comptime {
         switch (@typeInfo(@TypeOf(trait))) {
@@ -70,7 +71,7 @@ fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
     if (@as(TypeId, exp_info) != type_id) {
         return std.fmt.comptimePrint(
             "expected '{}', found '{}'",
-            .{ exp_id, type_id }
+            .{ @as(TypeId, exp_info), type_id }
         );
     }
 
@@ -260,10 +261,10 @@ fn Join(comptime traits: []const TraitFn) TraitFn {
     const S = struct {
         fn f (comptime _: type) type { return struct {}; }
     };
-    return JoinInternal(S.f, traits);
+    return JoinRecursive(S.f, traits);
 }
 
-fn JoinInternal(
+fn JoinRecursive(
     comptime Trait: TraitFn,
     comptime traits: []const TraitFn
 ) TraitFn {
@@ -278,7 +279,7 @@ fn JoinInternal(
             };
         }
     };
-    return JoinInternal(S.f, traits[1..]);
+    return JoinRecursive(S.f, traits[1..]);
 }
 
 
