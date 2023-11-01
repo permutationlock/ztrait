@@ -1,30 +1,34 @@
 # Patterns for Zig generics
 
-I like type systems and generic programming, almost certainly to the
-detriment to my own productivity. I also love the Zig programming
+I love type systems and generic programming, almost certainly to the
+detriment of my productivity. I also love the Zig programming
 language, which has an interesting approach to generics.
 
 I tend to agree with the opinion that generics should generally be
-avoided, but nonetheless I spent a decent chunk of type exploring
-Zig's generics and made a stab at implementing
-[my own version of Rust-style traits][1]. The rest of the article will
-assume that you have at least skimmed the readme.
+avoided. Nevertheless, I have spent a decent chunk of type exploring
+Zig's generics and I made a stab at implementing
+[my own version of Rust-style traits][1]. The rest of this article will
+assume that you have at least skimmed the readme of that project.
 
-## The example situation
+## An example situation
 
-Suppose that we have a `Server` struct that exposes a `poll` function that
-will poll for events on an internal collection sockets. There
+Suppose that we are a librar writer who has created a `Server` struct
+to manage a collection of TCP connections. We would like `Server`
+to exposes a `poll` function that will poll for events on the
+server's internal collection of connnected sockets.
+
+There
 are three possible events that we want to handle: client connection,
 message received, and client disconnection.
 
 Below I'll go over a few different ways that we could write a
-`Server.poll` function which accepts a generic `handler` type to
-handle reported events.
+`Server.poll` function that accepts a generic `handler` parameter
+to handle reported events.
 
 **Note:** There are many non-generic ways to tackle this, e.g.
 by using an interface struct that wraps a pointer
 to a specific handler implementation. In this
-article I'll be focusing on
+article I'll just be focusing on
 compile-time generics, and won't be discussing whether they
 are actually best solution for this particular sceneario.
 
@@ -35,7 +39,7 @@ a new function at compile-time for each different type of parameter
 passed. Compile time duck-typing is used to verify that the passed
 parameters have the required declarations and fields.
 
-A version of a `poll` function declaration for our server struct
+A `poll` function for our `Server` struct
 using `anytype` is provided below.
 
 ```Zig
@@ -65,7 +69,7 @@ pub const Server = struct {
 ```
 
 Someone using our library could then write their own simple server
-that simply logs events.
+that logs the reported events.
 
 ```Zig
 const std = @import("std");
@@ -104,13 +108,13 @@ pass for the `handler` parameter of `poll` they had to track down the
 return type of `Server.pollForEvent` and the definition of
 `Server.Event`.
 
-Obviously not a big deal in this simple case, but would be nice to have
+Obviously this is not a big deal in our case, but it would be nice to have
 the type requirements available right near the function signature.
 
-## Use a context pointer and function parameters
+## Use a context pointer and take functions as parameters
 
 If we want to be clear about what the caller should provide, we could
-instead take the functions that will be called on `handler` as
+instead take each of the functions that will be called on `handler` as
 separate parameters.
 
 ```Zig
@@ -152,7 +156,7 @@ while (true) {
 ## Comptime type checking
 
 Lets go back to the `anytype` example, but add some immediate type
-checking using traits. Let's define a `Handler` trait as follows.
+checking using traits. We can define a `Handler` trait as follows.
 
 ```Zig
 pub fn Handler(comptime Type: type) type {
@@ -164,7 +168,7 @@ pub fn Handler(comptime Type: type) type {
 }
 ```
 
-Then we can add a trait verification line to the top of `Server.poll`.
+Then we can add a trait verification line at the top of `Server.poll`.
 
 ```Zig
     // ...

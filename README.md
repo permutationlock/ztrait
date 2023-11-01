@@ -4,25 +4,15 @@ An attempt at implementing something along the lines of Rust type traits in Zig.
 Using this library you can define traits and compile-time verify that types
 implement them.
 
-You can only "implement" traits by adding declarations directly to a type's
-definition, so it might be more accurate to call the traits type classes or
-interfaces.
-
 The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
-## A somewhat practical example
-
-I wrote a longer article attempting to compare the various generic
-patterns used in Zig, and show how this library might be used in a
-closer to "real world" scenario.
-
- - [Patterns for Zig generics: a generic server event handler](https://github.com/permutationlock/zig_type_traits/tree/main/doc/patterns.md)
-
-## Related links
+## Links
 
 Below are some related projects and Zig proposal threads that I read while
-implementing the library.
+implementing the library.  I don't have any strong position on proposed
+changes to the Zig language regarding generics, and I respect the Zig team's
+reasoning for keeping the type system simple.
 
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
  - Zig issues:
@@ -31,9 +21,11 @@ implementing the library.
    [#6615](https://github.com/ziglang/zig/issues/6615),
    [#17198](https://github.com/ziglang/zig/issues/17198)
 
-I don't have any strong position on proposed changes to the Zig language
-regarding generics, and I respect the Zig team's reasoning for keeping the
-type system simple.
+I wrote an article that comparing a few generic
+patterns used in Zig by creating a small "real world" example of how
+this library might be used.
+
+ - [Patterns for Zig generics: a generic server event handler](https://github.com/permutationlock/zig_type_traits/tree/main/doc/patterns.md)
 
 ## Basic use
 
