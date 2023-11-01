@@ -8,8 +8,16 @@ You can only "implement" traits by adding declarations directly to a type's
 definition, so it might be more accurate to call the traits type classes or
 interfaces.
 
-The main value the library hopes to provide is nice error messages and
+The primary goal of the library is to explore
 a formal way to document requirements for generic type.
+
+## A somewhat practical example
+
+I wrote a longer article attempting to compare the various generic
+patterns used in Zig, and show how this library might be used in a
+closer to "real world" scenario.
+
+ - [Patterns for Zig generics: a generic server event handler](https://github.com/permutationlock/zig_type_traits)
 
 ## Related links
 
