@@ -20,11 +20,10 @@ Below I'll go over a few different ways that we could write a
 to handle reported events.
 
 **Note:** There are many non-generic ways to tackle this, e.g.
-by using an interface struct that wraps a pointer
+by using an interface struct that wraps a type-erased pointer
 to a specific handler implementation. In this
 article I'll just be focusing on
-compile-time generics, and won't be discussing whether they
-are actually best solution for this particular sceneario.
+compile-time generics.
 
 ## Just use `anytype`
 
@@ -105,11 +104,11 @@ return type of `Server.pollForEvent` and the definition of
 Obviously this is not a big deal in our case, but it would be nice to have
 the type requirements available right near the function signature.
 
-## Use a context pointer and take functions as parameters
+## Take required functions as explicit parameters
 
 If we want to be clear about what the caller should provide, we could
 instead take each of the functions that will be called on `handler` as
-separate parameters.
+a separate parameter.
 
 ```Zig
     // ...
@@ -227,8 +226,7 @@ A version of `Server.poll` using `trait.Interface` is provided below.
 
 As long as the `handler` parameter is only accessed via the declarations of
 the `HandlerIfc` interface struct, we have a guarantee that the `Handler` trait
-defines "necessary and sufficient" conditions for the type of
-`handler`.
+defines "necessary and sufficient" conditions for the type of `handler`.
 
 [1]: https://github.com/permutationlock/zig_type_traits
 [2]: https://ziglang.org/documentation/master/#Introducing-the-Compile-Time-Concept
