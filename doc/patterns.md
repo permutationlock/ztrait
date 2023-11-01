@@ -12,23 +12,23 @@ assume that you have at least skimmed the readme.
 
 ## The example situation
 
-Suppose that we have a `Server` struct that exposes a `poll` function to
-an internal collection of tracked sockets. There
+Suppose that we have a `Server` struct that exposes a `poll` function that
+will poll for events on an internal collection sockets. There
 are three possible events that we want to handle: client connection,
-client message received, and client disconnection.
+message received, and client disconnection.
 
 Below I'll go over a few different ways that we could write a
-`Server.poll` function that accepts a generic `handler` type to handle
-reported events.
+`Server.poll` function which accepts a generic `handler` type to
+handle reported events.
 
-**Note:** There are many other ways to tackle this, e.g.
-by using an interface struct that wraps pointers
+**Note:** There are many non-generic ways to tackle this, e.g.
+by using an interface struct that wraps a pointer
 to a specific handler implementation. In this
-article I'll be focusing only on
-compile-time generics, and avoid discussing whether they are actually
-best solution for this particular sceneario.
+article I'll be focusing on
+compile-time generics, and won't be discussing whether they
+are actually best solution for this particular sceneario.
 
-## Use `anytype`
+## Just use `anytype`
 
 Zig allows generic functions to take `anytype` parameters, generating
 a new function at compile-time for each different type of parameter
@@ -64,10 +64,13 @@ pub const Server = struct {
 }
 ```
 
-Someone using our server library could then write custom `LogHandler` type
-and write a 
+Someone using our library could then write their own simple server
+that simply logs events.
 
 ```Zig
+const std = @import("std");
+const log = std.log.scoped(.log_server);
+
 const my_server_lib = @import("my_server_lib")
 const Server = my_server_lib.Server;
 const Handle = Server.Handler;
@@ -130,8 +133,7 @@ separate parameters.
     // ...
 ```
 
-Unfortunately, this makes the calling `Server.poll`
-a bit more of a chore as seen below.
+Unfortunately, this does make calling `Server.poll` quite a bit more verbose.
 
 ```Zig
 var server = Server{};
@@ -186,17 +188,16 @@ Then we can add a trait verification line to the top of `Server.poll`.
 
 Trait verification requires the library maker to manually make sure
 that they keep the trait definitions up to date with how types are actually
-used. If we want to adopt a convention that forces traits to match with how
-the type is used, we could use trait interfaces.
+used. If we really need to adopt a convention that forces traits to match
+with how the type is used, we can use `trait.Interface`.
 
-The `trait.Interface` function takes a type `T` and a trait (or tuple
-of traits) and creates a comptime struct instance containing one
-field containing `T`'s implementation of each of the trait
-declarations.
+The `trait.Interface` comptime function takes a type `T` and a trait (or tuple
+of traits) and returns a struct instance containing one
+field for `T`'s implementation of each declaration of the trait.
 
-So long as the parameter is only accessed through this
-interface struct, we now verify that the specified traits are
-"necessary and sufficient" conditions for parameter types.
+So long as the parameter is only accessed via the declarations of this
+interface struct, we now have a guarantee that the specified trait(s)
+define "necessary and sufficient" conditions for parameter types.
 
 A version of `Server.poll` using `trait.Interface` is provided below.
 
@@ -219,3 +220,4 @@ A version of `Server.poll` using `trait.Interface` is provided below.
 ```
 
 [1]: https://github.com/permutationlock/zig_type_traits
+

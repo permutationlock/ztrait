@@ -17,7 +17,7 @@ I wrote a longer article attempting to compare the various generic
 patterns used in Zig, and show how this library might be used in a
 closer to "real world" scenario.
 
- - [Patterns for Zig generics: a generic server event handler](https://github.com/permutationlock/zig_type_traits)
+ - [Patterns for Zig generics: a generic server event handler](https://github.com/permutationlock/zig_type_traits/tree/main/doc/patterns.md)
 
 ## Related links
 
