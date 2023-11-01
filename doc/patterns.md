@@ -77,11 +77,11 @@ pub const LogHandler = struct {
         log.info("connection {} opened", .{ handle });
     }
 
-    pub fn handleClose(_: *Self, handle: Handle) void {
+    pub fn onClose(_: *Self, handle: Handle) void {
         log.info("connection {} closed", .{ handle });
     }
 
-    pub fn handleMessage(self: *Self, handle: Handle, msg: []const u8) void {
+    pub fn onMessage(self: *Self, handle: Handle, msg: []const u8) void {
         log.info("connection {} sent: {s}", .{ handle, msg });
     }
 };
@@ -111,29 +111,30 @@ instead take each of the functions that will be called on `handler` as
 a separate parameter.
 
 ```Zig
-    // ...
-    pub fn poll(
-        self: *Self,
-        handler: anytype, 
-        onOpen: fn (@TypeOf(handler), Handle) void,
-        onMessage: fn (@TypeOf(handler), Handle, Message) void,
-        onClose: fn (@TypeOf(handler), Handle) void
-    ) void {
-        while (self.pollForEvent()) |event| {
-            switch (event) {
-                .open => |handle| onOpen(handler, handle),
-                .msg => |msg| onMessage(handler, msg.handle, msg.bytes),
-                .close => |handle| onClose(handler, handle),
-            }
+// ...
+pub fn poll(
+    self: *Self,
+    handler: anytype, 
+    onOpen: fn (@TypeOf(handler), Handle) void,
+    onMessage: fn (@TypeOf(handler), Handle, Message) void,
+    onClose: fn (@TypeOf(handler), Handle) void
+) void {
+    while (self.pollForEvent()) |event| {
+        switch (event) {
+            .open => |handle| onOpen(handler, handle),
+            .msg => |msg| onMessage(handler, msg.handle, msg.bytes),
+            .close => |handle| onClose(handler, handle),
         }
     }
-    // ...
+}
+// ...
 ```
 
 Unfortunately, while this makes requirements explicit, it also makes calling
 `Server.poll` quite a bit more verbose.
 
 ```Zig
+// ...
 var server = Server{};
 var handler = MyHandler{};
 server.listen(port);
@@ -165,21 +166,19 @@ pub fn Handler(comptime Type: type) type {
 Then we add a trait verification line at the top of `Server.poll`.
 
 ```Zig
-    // ...
-    pub fn poll(self: *Self, handler: anytype) void {
-        comptime where(PointerChild(@TypeOf(handler)), implements(Handler));
+// ...
+pub fn poll(self: *Self, handler: anytype) void {
+    comptime where(PointerChild(@TypeOf(handler)), implements(Handler));
 
-        while (self.pollForEvent()) |event| {
-            while (self.pollForEvent()) |event| {
-                switch (event) {
-                    .open => |handle| handler.onOpen(handle),
-                    .msg => |msg| handler.onMessage(msg.handle, msg.bytes),
-                    .close => |handle| handler.onClose(handle),
-                }
-            }
+    while (self.pollForEvent()) |event| {
+        switch (event) {
+            .open => |handle| handler.onOpen(handle),
+            .msg => |msg| handler.onMessage(msg.handle, msg.bytes),
+            .close => |handle| handler.onClose(handle),
         }
     }
-    // ...
+}
+// ...
 ```
 
 To someone familiar with the trait convention, it is now immediately
@@ -207,21 +206,19 @@ field for `T`'s implementation of each declaration of the trait.
 A version of `Server.poll` using `trait.Interface` is provided below.
 
 ```Zig
-    // ...
-    pub fn poll(self: *Self, handler: anytype) void {
-        const HandlerIfc = Interface(PointerChild(@TypeOf(handler)), Handler);
+// ...
+pub fn poll(self: *Self, handler: anytype) void {
+    const HandlerIfc = Interface(PointerChild(@TypeOf(handler)), Handler);
 
-        while (self.pollForEvent()) |event| {
-            while (self.pollForEvent()) |event| {
-                switch (event) {
-                    .open => |handle| HanlderIfc.onOpen(handler, handle),
-                    .msg => |msg| HandlerIfc.onMessage(handler, msg.handle, msg.bytes),
-                    .close => |handle| HandlerIfc.onClose(handler, handle),
-                }
-            }
+    while (self.pollForEvent()) |event| {
+        switch (event) {
+            .open => |handle| HandlerIfc.onOpen(handler, handle),
+            .msg => |msg| HandlerIfc.onMessage(handler, msg.handle, msg.bytes),
+            .close => |handle| HandlerIfc.onClose(handler, handle),
         }
     }
-    // ...
+}
+// ...
 ```
 
 As long as the `handler` parameter is only accessed via the declarations of
