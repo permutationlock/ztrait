@@ -1,18 +1,11 @@
 # Patterns for Zig generics
 
-I love type systems and generic programming, almost certainly to the
-detriment of my productivity. I also love the Zig programming
-language, which has an interesting approach to generics.
-
-I tend to agree with the opinion that generics should generally be
-avoided. Nevertheless, I have spent a decent chunk of type exploring
-Zig's generics and I made a stab at implementing
-[my own version of Rust-style traits][1]. The rest of this article will
-assume that you have at least skimmed the readme of that project.
+This article assumes that you have at least skimmed the readme of
+my [Zig type trait library][1].
 
 ## An example situation
 
-Suppose that we are a librar writer who has created a `Server` struct
+Suppose that we are a library writer who has created a `Server` struct
 to manage a collection of TCP connections. We would like `Server`
 to exposes a `poll` function that will poll for events on the
 server's internal collection of connnected sockets.
