@@ -147,7 +147,7 @@ while (true) {
 }
 ```
 
-## Specific type checking with traits
+## Explicit type checking with traits
 
 Lets go back to the raw `anytype` method, but this time add some explicit type
 checking using traits. We can define a `Handler` trait as follows.
