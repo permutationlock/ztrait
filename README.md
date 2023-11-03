@@ -7,12 +7,19 @@ implement them.
 The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
-## Links
+### Comparing generic patterns
+
+I wrote an article that comparing a few Zig generic
+patterns and created a small example of how
+this library might be used.
+
+ - [Patterns for Zig generics: a generic server event handler](https://musing.permutationlock.com/posts/blog-patterns_for_zig_generics.html)
+
+
+### Related Links
 
 Below are some related projects and Zig proposal threads that I read while
-implementing the library.  I don't have any strong position on proposed
-changes to the Zig language regarding generics, and I respect the Zig team's
-reasoning for keeping the type system simple.
+implementing the library.
 
  - [Zig Compile-Time-Contracts](https://github.com/yrashk/zig-ctc)
  - Zig issues:
@@ -21,11 +28,9 @@ reasoning for keeping the type system simple.
    [#6615](https://github.com/ziglang/zig/issues/6615),
    [#17198](https://github.com/ziglang/zig/issues/17198)
 
-I wrote an article that comparing a few generic
-patterns used in Zig by creating a small "real world" example of how
-this library might be used.
-
- - [Patterns for Zig generics: a generic server event handler](https://musing.permutationlock.com/posts/blog-patterns_for_zig_generics.html)
+I don't have any strong position on proposed
+changes to the Zig language regarding generics, and I respect the Zig team's
+reasoning for keeping the type system simple.
 
 ## Basic use
 
