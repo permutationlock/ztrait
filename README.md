@@ -7,16 +7,12 @@ implement them.
 The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
-### Comparing generic patterns
-
-I wrote an article that comparing a few Zig generic
-patterns and created a small example of how
-this library might be used.
-
- - [Patterns for Zig generics: a generic server event handler](https://musing.permutationlock.com/posts/blog-patterns_for_zig_generics.html)
-
 
 ### Related Links
+
+I wrote [a short article](https://musing.permutationlock.com/posts/blog-patterns_for_zig_generics.html)
+on working with `anytype` in Zig that includes
+a short example using this library.
 
 Below are some related projects and Zig proposal threads that I read while
 implementing the library.
