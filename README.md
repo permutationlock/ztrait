@@ -10,7 +10,7 @@ a formal way to document requirements for generic type.
 
 ### Related Links
 
-I wrote [a short article](https://musing.permutationlock.com/posts/blog-patterns_for_zig_generics.html)
+I wrote [a short article](https://musing.permutationlock.com/posts/blog-in_defense_of_anytype.html)
 on working with `anytype` in Zig that includes
 a short example using this library.
 
