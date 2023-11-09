@@ -1,11 +1,14 @@
 const trait = @import("trait");
 const where = trait.where;
-const hasTypeInfo = trait.hasTypeInfo;
+const isPackedContainer = trait.isPackedContainer;
 pub usingnamespace trait;
 
 pub fn BackingInteger(comptime Type: type) type {
-    comptime where(Type, hasTypeInfo(.{ .Struct = .{ .layout = .Packed } }));
+    comptime where(Type, isPackedContainer());
 
-    return @typeInfo(Type).Struct.backing_integer.?;
+    return switch (@typeInfo(Type)) {
+        inline .Struct, .Union => |info| info.backing_integer.?,
+        else => unreachable,
+    };
 }
 

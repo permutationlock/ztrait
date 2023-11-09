@@ -233,12 +233,12 @@ pub fn main() void {
     _ = computeArea(MyCounterWithDimensions);
 
     // each of these should produce a compile error
-    countToTen(MyCounterMissingType);
-    countToTen(MyCounterMissingDecl);
-    countToTen(MyCounterInvalidType);
-    countToTen(MyCounterWrongFn);
-    computeAreaAndCount(MyCounterEnum);
-    useHolderToCountToTen(MyCounter);
-    useHolderToCountToTen(InvalidCounterHolder);
-    _ = computeArea(MyCounter);    
+    //countToTen(MyCounterMissingType);
+    //countToTen(MyCounterMissingDecl);
+    //countToTen(MyCounterInvalidType);
+    //countToTen(MyCounterWrongFn);
+    //computeAreaAndCount(MyCounterEnum);
+    //useHolderToCountToTen(MyCounter);
+    //useHolderToCountToTen(InvalidCounterHolder);
+    //_ = computeArea(MyCounter);    
 }

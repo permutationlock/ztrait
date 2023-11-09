@@ -7,12 +7,18 @@ implement them.
 The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
+A lot of
+different functionality is proveded as an exploration of what is
+possible. Below you will find explanations and simple examples for
+each piece of the library.
+
+I also wrote
+[an article](https://musing.permutationlock.com/posts/blog-in_defense_of_anytype.html)
+about `anytype`
+that contains a slightly more "real world" example of how this
+library might be used.
 
 ### Related Links
-
-I wrote [a short article](https://musing.permutationlock.com/posts/blog-in_defense_of_anytype.html)
-on working with `anytype` in Zig that includes
-a short example using this library.
 
 Below are some related projects and Zig proposal threads that I read while
 implementing the library.
@@ -292,23 +298,23 @@ pub fn incrementAll(list: anytype) void {
 ## Extending the library to support other use cases
 
 Users can define their own helper functions as needed by wrapping
-the trait module.
+and expanding the trait module.
 
 ```Zig
 // mytrait.zig
 
-const trait = @import("trait");
-const where = trait.where;
-const hasTypeInfo = trait.hasTypeInfo;
-
 // expose all declaraions from the standard trait module
+const trait = @import("trait");
 pub usingnamespace trait;
 
 // define your own convenience functions
 pub fn BackingInteger(comptime Type: type) type {
-    comptime where(Type, hasTypeInfo(.{ .Struct = .{ .layout = .Packed } }));
+    comptime trait.where(Type, trait.isPackedContainer());
 
-    return @typeInfo(Type).Struct.backing_integer.?;
+    return switch (@typeInfo(Type)) {
+        inline .Struct, .Union => |info| info.backing_integer.?,
+        else => unreachable,
+    };
 }
 ```
 
@@ -320,7 +326,9 @@ prevent code from using declarations beyond the scope of the checked
 traits. Thus it is on the developer to keep traits up to date with how
 types are actually used.
 
-The `Interface` function provides a method to formally restrict
+### Constructing interfaces within a function
+
+The `interface` function provides a method to formally restrict
 traits to be both necessary and sufficient requirements for types.
 Calling `Interface(Type, Trait)` will construct a comptime instance of a
 generated struct type that contains a field for each declaration of
@@ -329,17 +337,71 @@ fields of this interface struct are then used in place of the
 declarations of `Type`.
 
 ```Zig
-pub fn countToTen(comptime C: type) void {
-    const Counter = Interface(C, Incrementable);
+pub fn countToTen(counter: anytype) void {
+    const ifc = interface(@TypeOf(counter), Incrementable);
 
-    var counter = Counter.init();
-    while (Counter.read(&counter) < 10) {
-        Counter.increment(&counter);
+    while (ifc.read(counter) < 10) {
+        ifc.increment(counter);
     }
 }
 ```
 
-Interface construction performs the same type checking as `where`.
+Interface construction performs the same type checking as `where`,
+but it also "unwraps" the type: if `counter` above has type
+`?*MyCounter` then `interface` will unwrap the type down to
+`MyCounter` and then perform type checking.
+
+### Flexible interface parameters
+
+The type returned by `interface(U, T)` is `Interface(U, T)`, a
+`comptime` generated struct type containing one field for each declaration of
+`T` with default value equal to the corresponding declaration of `U`
+(if it exists and has the correct type).
+
+A more flexible, but less capable, way to work with interfaces is to
+take an `Interface` struct as an explicit `comptime` parameters.
+
+
+```Zig
+pub fn countToTen(counter: anytype, ifc: Interface(@TypeOf(Counter), Incrementable)) void {
+    while (ifc.read(counter) < 10) {
+        ifc.increment(counter);
+    }
+}
+```
+
+This allows the caller to override the default interfaces, or even
+provide a custom interface for a type that doesn't have the required
+declarations. Unfortunately, this style of interfaces does not allow
+trait declarations to depend on one another.
+
+A restricted version of the `Incrementable` interface that will play
+well with the interface parameter convention is provided below.
+
+```Zig
+pub fn Incrementable(comptime Type: type) type {
+    return struct {
+        pub const increment = fn (*Type) void;
+        pub const read = fn (*const Type) usize;
+    };
+}
+```
+
+An example of what is possible with this convention is shown below.
+
+```Zig
+const USize = struct {
+    pub fn increment(i: *usize) void {
+        i.* += 1;
+    }
+
+    pub fn read(i: *const usize) usize {
+        return i.*;
+    }
+};
+var my_count: usize = 0;
+countToTen(&my_count, .{ .increment = USize.increment, .read = USize.read });
+```
 
 ## Returns syntax: traits in function definitions
 
@@ -370,8 +432,7 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 ```
 
 **Warning:** Error messages can be less helpful when using `Returns`
-or `Interface` functionality
-because the compile errors occur while a function signature is being
+because the compile error occurs while a function signature is being
 generated. This can result in the line number of the original call
 not be reported unless building with `-freference-trace` (and even then
 the call site may still be obsucred in some degenerate cases).

@@ -1,7 +1,7 @@
 const std = @import("std");
 const trait = @import("trait");
 
-const Interface = trait.Interface;
+const interface = trait.interface;
 const where = trait.where;
 const implements = trait.implements;
 const hasTypeId = trait.hasTypeId;
@@ -186,7 +186,7 @@ const MyCounterEnum = enum(u32) {
 };
 
 pub fn countToTen(comptime C: type) void {
-    const Counter = Interface(C, Incrementable);
+    const Counter = interface(C, Incrementable);
 
     var counter = Counter.init();
     while (Counter.read(&counter) < 10) {
@@ -195,17 +195,17 @@ pub fn countToTen(comptime C: type) void {
 }
 
 pub fn computeArea(comptime T: type) comptime_int {
-    const Dimensions = Interface(T, HasDimensions);
+    const Dimensions = interface(T, HasDimensions);
     return Dimensions.width * Dimensions.height;
 }
 
 pub fn computeAreaExtraDecl(comptime T: type) comptime_int {
-    const Dimensions = Interface(T, HasDimensions);
+    const Dimensions = interface(T, HasDimensions);
     return Dimensions.width * Dimensions.height * Dimensions.depth;
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    const Counter = Interface(T, .{ Incrementable, HasDimensions });
+    const Counter = interface(T, .{ Incrementable, HasDimensions });
 
     var counter = Counter.init();
     while (Counter.read(&counter) < Counter.width * Counter.height) {
@@ -223,7 +223,7 @@ pub fn accessingOutsideInterface(comptime T: type) void {
 }
 
 pub fn useHolderToCountToTen(comptime T: type) void {
-    const Holder = Interface(T, HasIncrementable);
+    const Holder = interface(T, HasIncrementable);
     var counter = Holder.Counter.init();
     while (Holder.Counter.read(&counter) < 10) {
         Holder.Counter.increment(&counter);
@@ -249,13 +249,13 @@ pub fn main() void {
     _ = computeArea(MyCounterWithDimensions);
     accessingOutsideInterface(MyCounterWithDimensions);
 
-    //// each of these should produce a compile error
-    countToTen(MyCounterMissingType);
-    countToTen(MyCounterMissingDecl);
-    countToTen(MyCounterInvalidType);
-    countToTen(MyCounterWrongFn);
-    computeAreaAndCount(MyCounterEnum);
-    useHolderToCountToTen(MyCounter);
-    useHolderToCountToTen(InvalidCounterHolder);
-    _ = computeAreaExtraDecl(MyCounterWithDimensions);
+    // each of these should produce a compile error
+    //countToTen(MyCounterMissingType);
+    //countToTen(MyCounterMissingDecl);
+    //countToTen(MyCounterInvalidType);
+    //countToTen(MyCounterWrongFn);
+    //computeAreaAndCount(MyCounterEnum);
+    //useHolderToCountToTen(MyCounter);
+    //useHolderToCountToTen(InvalidCounterHolder);
+    //_ = computeAreaExtraDecl(MyCounterWithDimensions);
 }
