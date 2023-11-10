@@ -330,10 +330,11 @@ types are actually used.
 
 The `interface` function provides a method to formally restrict
 traits to be both necessary and sufficient requirements for types.
-Calling `Interface(Type, Trait)` will construct a comptime instance of a
+
+Calling `interface(Type, Trait)` will construct a comptime instance of a
 generated struct type that contains a field for each declaration of
-`Type` the type that has a matching declaration in `Trait`. The
-fields of this interface struct are then used in place of the
+`Type` that has a matching declaration in `Trait`. The
+fields of this interface struct should then be used in place of the
 declarations of `Type`.
 
 ```Zig
@@ -349,18 +350,17 @@ pub fn countToTen(counter: anytype) void {
 Interface construction performs the same type checking as `where`,
 but it also "unwraps" the type: if `counter` above has type
 `?*MyCounter` then `interface` will unwrap the type down to
-`MyCounter` and then perform type checking.
+`MyCounter` and then perform trait checking.
 
 ### Flexible interface parameters
 
 The type returned by `interface(U, T)` is `Interface(U, T)`, a
-`comptime` generated struct type containing one field for each declaration of
+struct type containing one field for each declaration of
 `T` with default value equal to the corresponding declaration of `U`
 (if it exists and has the correct type).
 
-A more flexible, but less capable, way to work with interfaces is to
-take an `Interface` struct as an explicit `comptime` parameters.
-
+A more flexible way to work with interfaces is to
+take an `Interface` struct as an explicit `comptime` parameter.
 
 ```Zig
 pub fn countToTen(counter: anytype, ifc: Interface(@TypeOf(Counter), Incrementable)) void {
@@ -370,11 +370,12 @@ pub fn countToTen(counter: anytype, ifc: Interface(@TypeOf(Counter), Incrementab
 }
 ```
 
-This allows the caller to override the default interfaces, or even
+This allows the caller to override declarations, or
 provide a custom interface for a type that doesn't have the required
-declarations. Unfortunately, this style of interfaces does not allow
-trait declarations to depend on one another.
+declarations.
 
+Unfortunately, this style of interfaces does not allow
+trait declarations to depend on one another.
 A restricted version of the `Incrementable` interface that will play
 well with the interface parameter convention is provided below.
 
