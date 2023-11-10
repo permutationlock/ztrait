@@ -232,8 +232,7 @@ pub fn isTuple() Constraint {
 pub const Child = std.meta.Child;
 
 pub fn PointerChild(comptime Type: type) type {
-    comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
-    
+    comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } })); 
     return @typeInfo(Type).Pointer.child;
 }
 
@@ -303,9 +302,9 @@ pub fn interface(
     return .{};
 }
 
-pub fn Interface(comptime Self: type, comptime traits: anytype) type {
+pub fn Interface(comptime WType: type, comptime traits: anytype) type {
     comptime {
-        const Type = Unwrap(Self);
+        const Type = Unwrap(WType);
         const Trait = Join(implements(traits).traits);
         const trait_info = @typeInfo(Trait(Type)).Struct;
         const trait_decls = trait_info.decls;
@@ -340,10 +339,16 @@ pub fn Interface(comptime Self: type, comptime traits: anytype) type {
 }
 
 fn Join(comptime traits: []const TraitFn) TraitFn {
-    const S = struct {
-        pub fn f (comptime _: type) type { return struct {}; }
-    };
-    return JoinRecursive(S.f, traits);
+    if (traits.len == 0) {
+        const S = struct {
+            pub fn f (comptime _: type) type { return struct {}; }
+        };
+        return S.f;
+    }
+    if (traits.len == 1) {
+        return traits[0];
+    }
+    return JoinRecursive(traits[0], traits[1..]);
 }
 
 fn JoinRecursive(
