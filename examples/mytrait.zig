@@ -1,7 +1,7 @@
-const trait = @import("trait");
-const where = trait.where;
-const isPackedContainer = trait.isPackedContainer;
-pub usingnamespace trait;
+const ztrait = @import("ztrait");
+const where = ztrait.where;
+const isPackedContainer = ztrait.isPackedContainer;
+pub usingnamespace ztrait;
 
 pub fn BackingInteger(comptime Type: type) type {
     comptime where(Type, isPackedContainer());

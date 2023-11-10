@@ -1,10 +1,10 @@
 const std = @import("std");
-const trait = @import("trait");
+const ztrait = @import("ztrait");
 
-const interface = trait.interface;
-const where = trait.where;
-const implements = trait.implements;
-const hasTypeId = trait.hasTypeId;
+const interface = ztrait.interface;
+const where = ztrait.where;
+const implements = ztrait.implements;
+const hasTypeId = ztrait.hasTypeId;
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {

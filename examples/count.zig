@@ -1,10 +1,10 @@
 const std = @import("std");
-const trait = @import("trait");
+const ztrait = @import("ztrait");
 
-const where = trait.where;
-const implements = trait.implements;
-const hasTypeId = trait.hasTypeId;
-const hasTypeInfo = trait.hasTypeInfo;
+const where = ztrait.where;
+const implements = ztrait.implements;
+const hasTypeId = ztrait.hasTypeId;
+const hasTypeInfo = ztrait.hasTypeInfo;
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {
@@ -198,7 +198,7 @@ pub fn computeArea(comptime T: type) comptime_int {
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    comptime where(T, trait.implements(.{ Incrementable, HasDimensions }));
+    comptime where(T, ztrait.implements(.{ Incrementable, HasDimensions }));
 
     var counter = T.init();
     while (counter.read() < T.width * T.height) {

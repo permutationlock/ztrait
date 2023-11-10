@@ -1,7 +1,7 @@
 const std = @import("std");
-const trait = @import("trait");
+const ztrait = @import("ztrait");
 
-const Interface = trait.Interface;
+const Interface = ztrait.Interface;
 
 pub fn Incrementable(comptime Type: type) type {
     return struct {

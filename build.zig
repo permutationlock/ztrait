@@ -14,8 +14,8 @@ pub fn build(b: *Builder) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const trait = b.addModule("trait", .{
-        .source_file = .{ .path = "src/trait.zig" },
+    const ztrait = b.addModule("ztrait", .{
+        .source_file = .{ .path = "src/ztrait.zig" },
     });
 
     inline for (paths) |example| {
@@ -25,7 +25,7 @@ pub fn build(b: *Builder) !void {
             .target = target,
             .optimize = optimize
         });
-        exe.addModule("trait", trait);
+        exe.addModule("ztrait", ztrait);
         const run_step = b.step(example.name, &.{});
         run_step.dependOn(&b.addRunArtifact(exe).step);
     }

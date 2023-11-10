@@ -1,9 +1,9 @@
 const std = @import("std");
-const trait = @import("trait");
+const ztrait = @import("ztrait");
 
-const SliceChild = trait.SliceChild;
-const where = trait.where;
-const isNumber = trait.isNumber;
+const SliceChild = ztrait.SliceChild;
+const where = ztrait.where;
+const isNumber = ztrait.isNumber;
 
 pub fn sumNumbers(list: anytype) SliceChild(@TypeOf(list)) {
     comptime where(SliceChild(@TypeOf(list)), isNumber());

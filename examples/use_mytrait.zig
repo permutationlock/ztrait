@@ -1,10 +1,10 @@
 const std = @import("std");
-const trait = @import("mytrait.zig");
+const ztrait = @import("mytrait.zig");
 
 pub fn addToPackedStruct(
     s1: anytype,
-    n: trait.BackingInteger(@TypeOf(s1))
-) trait.BackingInteger(@TypeOf(s1)) {
+    n: ztrait.BackingInteger(@TypeOf(s1))
+) ztrait.BackingInteger(@TypeOf(s1)) {
     return @as(@TypeOf(n), @bitCast(s1)) + n;
 }
 
