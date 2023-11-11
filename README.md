@@ -7,12 +7,7 @@ implement them.
 The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
-A lot of
-different functionality is provided as an exploration of what is
-possible. Below you will find explanations and simple examples for
-each piece of the library.
-
-I also wrote
+I wrote
 [an article](https://musing.permutationlock.com/posts/blog-working_with_anytype.html)
 about `anytype`
 that contains a slightly more "real world" example of how this
