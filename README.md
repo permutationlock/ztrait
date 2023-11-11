@@ -8,7 +8,7 @@ The primary goal of the library is to explore
 a formal way to document requirements for generic type.
 
 A lot of
-different functionality is proveded as an exploration of what is
+different functionality is provided as an exploration of what is
 possible. Below you will find explanations and simple examples for
 each piece of the library.
 
@@ -42,7 +42,7 @@ Each declaration of the returned struct is a required declaration that a
 type must have if it implements the trait. 
 
 Below is a trait that requires implementing types to define an integer
-sub-type `Count`, define an `init` funciton, and define member functions
+sub-type `Count`, define an `init` function, and define member functions
 `increment` and `read`.
 
 ```Zig
@@ -81,7 +81,7 @@ const MyCounter = struct {
 };
 ```
 
-To require that a generic type parameter implenents a given trait you simply
+To require that a generic type parameter implements a given trait you simply
 need to add a comptime verification line at the start of your function.
 
 ```Zig
@@ -168,9 +168,9 @@ pub fn computeAreaAndCount(comptime T: type) void {
 }
 ```
 
-## Constraining subtypes
+## Constraining sub-types
 
-Traits can require typese to declare subtypes
+Traits can require types to declare sub-types
 that are constrained traits.
 
 ```Zig
@@ -210,7 +210,7 @@ trait.zig:12:13: error: trait 'count.HasIncrementable(count.InvalidCounterHolder
 ## Declaring that a type implements a trait
 
 Alongside enforcing trait implementation in generic functions, types themselves
-can delare that they implement a given trait.
+can declare that they implement a given trait.
 
 ```Zig
 const MyCounter = struct {
@@ -235,14 +235,14 @@ Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
 We can constrain `anytype` parameters in exactly the same way.
 Often one will want to pass a pointer type to a function taking
-`anyttype`, and it turns out that it is still quite simple to do
+`anytype`, and it turns out that it is still quite simple to do
 trait checking.
 
 Because single
 item pointers allow automatic dereferencing in Zig, we consider a
 type `*T` to implement a trait if `T` implements the trait. To
-implement this types are passed through an `Unwrap` function before
-trait checking occurrs.
+accomplish this, types are passed through an `Unwrap` function before
+trait checking occurs.
 
 ```Zig
 pub fn Unwrap(comptime Type: type) type {
@@ -253,7 +253,7 @@ pub fn Unwrap(comptime Type: type) type {
 }
 ```
 
-Therfore the following function will work just fine with pointers to
+Therefore the following function will work just fine with pointers to
 types that implement `Incrementable`.
 
 ```Zig
@@ -267,7 +267,7 @@ pub fn countToTen(counter: anytype) void {
 ```
 
 Slice types are slightly more complicated because they do not behave
-in the same way as single item pointrs. Moreover, we usually want to
+in the same way as single item pointers. Moreover, we usually want to
 allow for `*[_]T` types as well as `[]T`. The library provides the
 `SliceChild` helper function to verify that a type can coerce to a slice
 and extracts the child type.
@@ -436,5 +436,5 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 because the compile error occurs while a function signature is being
 generated. This can result in the line number of the original call
 not be reported unless building with `-freference-trace` (and even then
-the call site may still be obsucred in some degenerate cases).
+the call site may still be obscured in some degenerate cases).
 
