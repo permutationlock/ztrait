@@ -214,8 +214,10 @@ Often one will want to pass a pointer type to a function taking
 trait checking.
 
 Single item pointers allow automatic dereferencing in Zig, e.g.
-`ptr.decl` is `ptr.*.decl`, it makes sense to say that a pointer
-type `*T` implements a trait if `T` implements the trait. To
+`ptr.decl` is `ptr.*.decl`, so it makes sense to define that a pointer
+type `*T` implements a trait if `T` implements the trait.
+
+To
 accomplish this, types are passed through an `Unwrap` function before
 trait checking occurs.
 
