@@ -42,7 +42,7 @@ const MyCounterWrongFn = struct {
     }
 };
 
-pub fn countToTen(ctr: anytype, ifc: Incrementable(ctr)) void {
+pub fn countToTen(ctr: anytype, ifc: Incrementable(@TypeOf(ctr))) void {
     while (ifc.read(ctr) < 10) {
         ifc.increment(ctr);
     }
