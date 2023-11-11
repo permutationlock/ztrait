@@ -298,6 +298,14 @@ pub fn interface(
     return .{};
 }
 
+pub fn DefineInterface(comptime traits: anytype) fn (type) type {
+    return struct {
+        pub fn f(comptime Type: type) type {
+            return Interface(Type, traits);
+        }
+    }.f;
+}
+
 pub fn Interface(comptime WType: type, comptime traits: anytype) type {
     comptime {
         const Type = Unwrap(WType);

@@ -13,7 +13,7 @@ possible. Below you will find explanations and simple examples for
 each piece of the library.
 
 I also wrote
-[an article](https://musing.permutationlock.com/posts/blog-in_defense_of_anytype.html)
+[an article](https://musing.permutationlock.com/posts/blog-working_with_anytype.html)
 about `anytype`
 that contains a slightly more "real world" example of how this
 library might be used.
@@ -54,7 +54,7 @@ pub fn Incrementable(comptime Type: type) type {
 
         pub const init = fn () Type;
         pub const increment = fn (*Type) void;
-        pub const read = fn (*Type) Type.Count;
+        pub const read = fn (*const Type) Type.Count;
     };
 }
 ```
@@ -75,7 +75,7 @@ const MyCounter = struct {
         self.count += 1;
     }
     
-    pub fn read(self: *@This()) Count {
+    pub fn read(self: *const @This()) Count {
         return self.count;
     }
 };
@@ -112,7 +112,7 @@ const MyCounterMissingDecl = struct {
         return .{ .count = 0 };
     }
  
-    pub fn read(self: *@This()) Count {
+    pub fn read(self: *const @This()) Count {
         return self.count;
     }
 };

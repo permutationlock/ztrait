@@ -1,14 +1,14 @@
 const std = @import("std");
 const ztrait = @import("ztrait");
 
-const Interface = ztrait.Interface;
-
-pub fn Incrementable(comptime Type: type) type {
+fn IncrementableTrait(comptime Type: type) type {
     return struct {
         pub const increment = fn (*Type) void;
         pub const read = fn (*const Type) usize;
     };
 }
+
+const Incrementable = ztrait.DefineInterface(IncrementableTrait);
 
 const MyCounter = struct {
     count: usize,
@@ -42,12 +42,9 @@ const MyCounterWrongFn = struct {
     }
 };
 
-pub fn countToTen(
-    counter: anytype,
-    Ifc: Interface(@TypeOf(counter), Incrementable)
-) void {
-    while (Ifc.read(counter) < 10) {
-        Ifc.increment(counter);
+pub fn countToTen(ctr: anytype, ifc: Incrementable(ctr)) void {
+    while (ifc.read(ctr) < 10) {
+        ifc.increment(ctr);
     }
 }
 
@@ -81,6 +78,6 @@ pub fn main() void {
     // each of these should produce a compile error
     //countToTen(&counter_missing_decl, .{});
 
-    //var counter_wrong_fn: MyCounterWrongFn = .{ .count = 0 };
-    //countToTen(&counter_wrong_fn, .{});
+    var counter_wrong_fn: MyCounterWrongFn = .{ .count = 0 };
+    countToTen(&counter_wrong_fn, .{});
 }
