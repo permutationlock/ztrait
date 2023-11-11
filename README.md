@@ -233,13 +233,32 @@ Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
 ## Validating pointer and slice types passed as `anytype`
 
-We can constrain `anytype` parameters to be pointer types that dereference
-to types that implement traits.
+We can constrain `anytype` parameters in exactly the same way.
+Often one will want to pass a pointer type to a function taking
+`anyttype`, and it turns out that it is still quite simple to do
+trait checking.
+
+Because single
+item pointers allow automatic dereferencing in Zig, we consider a
+type `*T` to implement a trait if `T` implements the trait. To
+implement this types are passed through an `Unwrap` function before
+trait checking occurrs.
+
+```Zig
+pub fn Unwrap(comptime Type: type) type {
+    return switch (@typeInfo(Type)) {
+        .Pointer => PointerChild(Type),
+        else => Type,
+    };
+}
+```
+
+Therfore the following function will work just fine with pointers to
+types that implement `Incrementable`.
 
 ```Zig
 pub fn countToTen(counter: anytype) void {
-    comptime where(@TypeOf(counter), hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
-    comptime where(Child(@TypeOf(counter)), implements(Incrementable));
+    comptime where(@TypeOf(counter), implements(Incrementable));
 
     while (counter.read() < 10) {
         counter.increment();
@@ -247,29 +266,10 @@ pub fn countToTen(counter: anytype) void {
 }
 ```
 
-The `Child` helper funciton used above is simply `std.meta.Child`. In the case
-that `T` is a pointer type, `Child(T)` grabs the type that the pointer
-dereferences to.
-
-To make this style of type checking less verbose, a helper function
-`PointerChild` is provided that verifies a type is a single item
-pointer and extracts its child type in one call.
-
-```Zig
-pub fn countToTen(counter: anytype) void {
-    comptime where(PointerChild(@TypeOf(counter)), implements(Incrementable));
-
-    while (counter.read() < 10) {
-        counter.increment();
-    }
-}
-```
-
-Slice types are slightly more complicated because we usually want to
-allow for `*[_]T` types as well as `[]T`. In this case we have to use the
-`SliceChild` helper function
-because `Child(*[_]U)` is `[n]U` not `U`.
-The `SliceChild` function verifies that a type can coerce to a slice
+Slice types are slightly more complicated because they do not behave
+in the same way as single item pointrs. Moreover, we usually want to
+allow for `*[_]T` types as well as `[]T`. The library provides the
+`SliceChild` helper function to verify that a type can coerce to a slice
 and extracts the child type.
 
 ```Zig
@@ -282,8 +282,8 @@ pub fn incrementAll(list: anytype) void {
 }
 ```
 
-The above function works directly on types that coerce to a slice,
-but if required you can actually coerce the type to a slice as shown below.
+The above function works directly on a type that could coerce to a slice,
+but if required we can force coercion to a slice as shown below.
 
 ```Zig
 pub fn incrementAll(list: anytype) void {
