@@ -71,7 +71,7 @@ pub const Constraint = union(enum) {
         return switch (self) {
             .any => null,
             .infos => |list| checkInfoList(Type, list),
-            .traits => |list| checkTraitList(Type, list),
+            .traits => |list| checkTraitList(Unwrap(Type), list),
         };
     }
 };
@@ -194,9 +194,9 @@ fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
 }
 
 
-// ---------------------
-// Convenience functions
-// ---------------------
+// ----------------
+// Helper functions
+// ----------------
 //   To create your own helper functions:
 //     - create a new file, e.g. "mytrait.zig"
 //     - add the following line: `pub usingnamespace @import("trait");`
@@ -229,8 +229,6 @@ pub fn isTuple() Constraint {
     return hasTypeInfo(.{ .Struct = .{ .is_tuple = true } });
 }
 
-pub const Child = std.meta.Child;
-
 pub fn PointerChild(comptime Type: type) type {
     comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } })); 
     return @typeInfo(Type).Pointer.child;
@@ -238,9 +236,7 @@ pub fn PointerChild(comptime Type: type) type {
 
 pub fn Unwrap(comptime Type: type) type {
     return switch (@typeInfo(Type)) {
-        .Pointer => Unwrap(PointerChild(Type)),
-        .Optional => |info| Unwrap(info.child),
-        .ErrorUnion => |info| Unwrap(info.payload),
+        .Pointer => PointerChild(Type),
         else => Type,
     };
 }
@@ -298,7 +294,7 @@ pub fn interface(
     comptime Type: type,
     comptime traits: anytype
 ) Interface(Type, traits) {
-    comptime where(Unwrap(Type), implements(traits));
+    comptime where(Type, implements(traits));
     return .{};
 }
 
