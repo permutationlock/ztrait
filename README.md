@@ -122,30 +122,6 @@ const MyCounterMissingDecl = struct {
 trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterMissingDecl)' failed: missing decl 'increment'
 ```
 
-```Zig
-const MyCounterInvalidType = struct {
-    pub const Count = struct { n: u32 };
-
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = .{ .n = 0} };
-    }
-
-    pub fn increment(self: *@This()) void {
-        self.count.n += 1;
-    }
-    
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-```
-
-```Shell
-trait.zig:12:13: error: trait 'count.Incrementable(count.MyCounterInvalidType)' failed: decl 'Count': expected 'trait.TypeId.Int', found 'trait.TypeId.Struct'
-```
-
 ## Combining traits
 
 Multiple traits can be type checked with a single call.
@@ -171,7 +147,7 @@ pub fn computeAreaAndCount(comptime T: type) void {
 ## Constraining sub-types
 
 Traits can require types to declare sub-types
-that are constrained traits.
+that implement traits.
 
 ```Zig
 pub fn HasIncrementable(comptime _: type) type {
@@ -231,16 +207,15 @@ test {
 
 Credit to "NewbLuck" on the Zig Discord for pointing out this nice pattern.
 
-## Validating pointer and slice types passed as `anytype`
+## Pointer types
 
-We can constrain `anytype` parameters in exactly the same way.
 Often one will want to pass a pointer type to a function taking
 `anytype`, and it turns out that it is still quite simple to do
 trait checking.
 
-Because single
-item pointers allow automatic dereferencing in Zig, we consider a
-type `*T` to implement a trait if `T` implements the trait. To
+Single item pointers allow automatic dereferencing in Zig, e.g.
+`ptr.decl` is `ptr.*.decl`, it makes sense to say that a pointer
+type `*T` implements a trait if `T` implements the trait. To
 accomplish this, types are passed through an `Unwrap` function before
 trait checking occurs.
 
@@ -266,11 +241,12 @@ pub fn countToTen(counter: anytype) void {
 }
 ```
 
-Slice types are slightly more complicated because they do not behave
-in the same way as single item pointers. Moreover, we usually want to
-allow for `*[_]T` types as well as `[]T`. The library provides the
+## Slice types
+
+For slice parameters we usually want the caller to be able to pass
+both `*[_]T` and `[]T`. The library provides the
 `SliceChild` helper function to verify that a type can coerce to a slice
-and extracts the child type.
+andt extract its child type.
 
 ```Zig
 pub fn incrementAll(list: anytype) void {
@@ -282,8 +258,8 @@ pub fn incrementAll(list: anytype) void {
 }
 ```
 
-The above function works directly on a type that could coerce to a slice,
-but if required we can force coercion to a slice as shown below.
+The above function works directly on parameters that can coerce to a slice,
+but if required we can force coercion to a slice type as shown below.
 
 ```Zig
 pub fn incrementAll(list: anytype) void {
@@ -293,28 +269,6 @@ pub fn incrementAll(list: anytype) void {
     for (slice) |*counter| {
         counter.increment();
     }
-}
-```
-## Extending the library to support other use cases
-
-Users can define their own helper functions as needed by wrapping
-and expanding the trait module.
-
-```Zig
-// mytrait.zig
-
-// expose all declaraions from the standard trait module
-const zt = @import("ztrait");
-pub usingnamespace ztrait;
-
-// define your own convenience functions
-pub fn BackingInteger(comptime Type: type) type {
-    comptime zt.where(Type, zt.isPackedContainer());
-
-    return switch (@typeInfo(Type)) {
-        inline .Struct, .Union => |info| info.backing_integer.?,
-        else => unreachable,
-    };
 }
 ```
 
@@ -399,6 +353,29 @@ const USize = struct {
 };
 var my_count: usize = 0;
 countToTen(&my_count, .{ .increment = USize.increment, .read = USize.read });
+```
+
+## Extending the library to support other use cases
+
+Users can define their own helper functions as needed by wrapping
+and expanding the trait module.
+
+```Zig
+// mytrait.zig
+
+// expose all declaraions from the standard trait module
+const zt = @import("ztrait");
+pub usingnamespace ztrait;
+
+// define your own convenience functions
+pub fn BackingInteger(comptime Type: type) type {
+    comptime zt.where(Type, zt.isPackedContainer());
+
+    return switch (@typeInfo(Type)) {
+        inline .Struct, .Union => |info| info.backing_integer.?,
+        else => unreachable,
+    };
+}
 ```
 
 ## Returns syntax: traits in function definitions
