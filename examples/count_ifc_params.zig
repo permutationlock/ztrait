@@ -78,6 +78,6 @@ pub fn main() void {
     // each of these should produce a compile error
     //countToTen(&counter_missing_decl, .{});
 
-    var counter_wrong_fn: MyCounterWrongFn = .{ .count = 0 };
-    countToTen(&counter_wrong_fn, .{});
+    //var counter_wrong_fn: MyCounterWrongFn = .{ .count = 0 };
+    //countToTen(&counter_wrong_fn, .{});
 }
