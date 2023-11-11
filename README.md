@@ -159,7 +159,7 @@ pub fn HasDimensions(comptime _: type) type {
 }
 
 pub fn computeAreaAndCount(comptime T: type) void {
-    comptime where(T, trait.implements(.{ Incrementable, HasDimensions }));
+    comptime where(T, implements(.{ Incrementable, HasDimensions }));
 
     var counter = T.init();
     while (counter.read() < T.width * T.height) {
@@ -304,12 +304,12 @@ and expanding the trait module.
 // mytrait.zig
 
 // expose all declaraions from the standard trait module
-const trait = @import("trait");
-pub usingnamespace trait;
+const zt = @import("ztrait");
+pub usingnamespace ztrait;
 
 // define your own convenience functions
 pub fn BackingInteger(comptime Type: type) type {
-    comptime trait.where(Type, trait.isPackedContainer());
+    comptime zt.where(Type, zt.isPackedContainer());
 
     return switch (@typeInfo(Type)) {
         inline .Struct, .Union => |info| info.backing_integer.?,
@@ -347,10 +347,7 @@ pub fn countToTen(counter: anytype) void {
 }
 ```
 
-Interface construction performs the same type checking as `where`,
-but it also "unwraps" the type: if `counter` above has type
-`?*MyCounter` then `interface` will unwrap the type down to
-`MyCounter` and then perform trait checking.
+Interface construction performs the same type checking as `where`.
 
 ### Flexible interface parameters
 
