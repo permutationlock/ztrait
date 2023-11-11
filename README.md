@@ -362,7 +362,7 @@ and expanding the trait module.
 
 // expose all declaraions from the standard trait module
 const zt = @import("ztrait");
-pub usingnamespace ztrait;
+pub usingnamespace zt;
 
 // define your own convenience functions
 pub fn BackingInteger(comptime Type: type) type {
