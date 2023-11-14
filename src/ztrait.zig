@@ -71,7 +71,7 @@ pub const Constraint = union(enum) {
         return switch (self) {
             .any => null,
             .infos => |list| checkInfoList(Type, list),
-            .traits => |list| checkTraitList(Unwrap(Type), list),
+            .traits => |list| checkTraitList(Type, list),
         };
     }
 };
@@ -234,13 +234,6 @@ pub fn PointerChild(comptime Type: type) type {
     return @typeInfo(Type).Pointer.child;
 }
 
-pub fn Unwrap(comptime Type: type) type {
-    return switch (@typeInfo(Type)) {
-        .Pointer => PointerChild(Type),
-        else => Type,
-    };
-}
-
 pub fn SliceChild(comptime Type: type) type {
     switch (@typeInfo(Type)) {
         .Pointer => |info| {
@@ -306,9 +299,8 @@ pub fn DefineInterface(comptime traits: anytype) fn (type) type {
     }.f;
 }
 
-pub fn Interface(comptime WType: type, comptime traits: anytype) type {
+pub fn Interface(comptime Type: type, comptime traits: anytype) type {
     comptime {
-        const Type = Unwrap(WType);
         const Trait = Join(implements(traits).traits);
         const trait_info = @typeInfo(Trait(Type)).Struct;
         const trait_decls = trait_info.decls;

@@ -1,14 +1,14 @@
 const std = @import("std");
 const ztrait = @import("ztrait");
+const Interface = ztrait.Interface;
+const PointerChild = ztrait.PointerChild;
 
-fn IncrementableTrait(comptime Type: type) type {
+fn Incrementable(comptime Type: type) type {
     return struct {
         pub const increment = fn (*Type) void;
         pub const read = fn (*const Type) usize;
     };
 }
-
-const Incrementable = ztrait.DefineInterface(IncrementableTrait);
 
 const MyCounter = struct {
     count: usize,
@@ -42,7 +42,10 @@ const MyCounterWrongFn = struct {
     }
 };
 
-pub fn countToTen(ctr: anytype, ifc: Incrementable(@TypeOf(ctr))) void {
+pub fn countToTen(
+    ctr: anytype,
+    ifc: Interface(PointerChild(@TypeOf(ctr)), Incrementable)
+) void {
     while (ifc.read(ctr) < 10) {
         ifc.increment(ctr);
     }
