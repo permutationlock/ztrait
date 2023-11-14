@@ -5,13 +5,15 @@ Using this library you can define traits and compile-time verify that types
 implement them.
 
 The primary goal of the library is to explore
-a formal way to document requirements for generic type.
+formal ways to document requirements for generic types in Zig. If you are
+interested in a practical library for everyday use, I recommend my
+abridged [zimpl library](https://github.com/permutationlock/zimpl).
 
-I wrote
+I also wrote
 [an article](https://musing.permutationlock.com/posts/blog-working_with_anytype.html)
-about `anytype`
-that contains a slightly more "real world" example of how this
-library might be used.
+about working with `anytyp` that covers some of my thought process while
+developing this library. It also contains a slightly more "real world"
+example of how traits and interfaces can be used.
 
 ### Related Links
 
