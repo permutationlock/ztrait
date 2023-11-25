@@ -1,13 +1,10 @@
 const std = @import("std");
 const Builder = std.build.Builder;
 
-const Example = struct { name: []const u8, path: []const u8 };
-const paths = [_]Example{
+const Test = struct { name: []const u8, path: []const u8 };
+const paths = [_]Test{
     .{ .name = "count", .path = "examples/count.zig" },
-    .{ .name = "slices", .path = "examples/slices.zig" },
-    .{ .name = "mytrait", .path = "examples/use_mytrait.zig" },
-    .{ .name = "count_ifc", .path = "examples/count_ifc.zig" },
-    .{ .name = "count_ifc_params", .path = "examples/count_ifc_params.zig" },
+    .{ .name = "reader", .path = "examples/reader.zig" },
 };
 
 pub fn build(b: *Builder) !void {
@@ -18,15 +15,15 @@ pub fn build(b: *Builder) !void {
         .source_file = .{ .path = "src/ztrait.zig" },
     });
 
+    const test_step = b.step("test", &.{});
     inline for (paths) |example| {
-        const exe = b.addExecutable(.{
+        const exe = b.addTest(.{
             .name = example.name,
             .root_source_file = .{ .path = example.path },
             .target = target,
             .optimize = optimize
         });
         exe.addModule("ztrait", ztrait);
-        const run_step = b.step(example.name, &.{});
-        run_step.dependOn(&b.addRunArtifact(exe).step);
+        test_step.dependOn(&b.addRunArtifact(exe).step);
     }
 }

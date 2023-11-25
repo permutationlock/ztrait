@@ -1,130 +1,43 @@
 const std = @import("std");
 const ztrait = @import("ztrait");
 
-const where = ztrait.where;
+const Impl = ztrait.Impl;
+const PtrChild = ztrait.PtrChild;
 const implements = ztrait.implements;
 const hasTypeId = ztrait.hasTypeId;
-const hasTypeInfo = ztrait.hasTypeInfo;
 
-pub fn Incrementable(comptime Type: type) type {
-    return struct {
-        pub const Count = hasTypeId(.Int);
+pub fn Incrementable(comptime Self: type) ztrait.Interface {
+    return .{
+        .Requires = struct {
+            pub const Count = hasTypeId(.Int);
 
-        pub const init = fn () Type;
-        pub const increment = fn (*Type) void;
-        pub const read = fn (*Type) Type.Count;
+            pub const increment = fn (*Self) void;
+            pub const read = fn (*const Self) Self.Count;
+        },
+        .Using = struct {
+            pub fn add(self: *Self, n: Self.Count) void {
+                var i: usize = 0;
+                while (i < n) : (i += 1) {
+                    Self.increment(self);
+                }
+            }
+        },
     };
 }
 
-pub fn HasDimensions(comptime _: type) type {
-    return struct {
-        pub const width = comptime_int;
-        pub const height = comptime_int;
-    };
-}
-
-pub fn IncrementableWithDimensions(comptime Type: type) type {
-    return struct {
-        pub usingnamespace Incrementable(Type);
-        pub usingnamespace HasDimensions(Type);
-    };
-}
-
-pub fn HasIncrementable(comptime _: type) type {
-    return struct {
-        pub const Counter = implements(Incrementable);
-    };
+pub fn countToTen(
+    ctr_data: anytype,
+    comptime ctr_impl: Impl(PtrChild(@TypeOf(ctr_data)), Incrementable),
+) void {
+    while (ctr_impl.read(ctr_data) < 10) {
+        ctr_impl.increment(ctr_data);
+    }
 }
 
 const MyCounter = struct {
-    pub const Count = u32;
-
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = 0 };
-    }
-
-    pub fn increment(self: *@This()) void {
-        self.count += 1;
-    }
-    
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-
-const MyCounterMissingType = struct {
     count: u32,
 
-    pub fn init() @This() {
-        return .{ .count = 0 };
-    }
-
-    pub fn increment(self: *@This()) void {
-        self.count += 1;
-    }
-    
-    pub fn read(self: *@This()) u32 {
-        return self.count;
-    }
-};
-
-const MyCounterMissingDecl = struct {
     pub const Count = u32;
-
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = 0 };
-    }
- 
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-
-const MyCounterInvalidType = struct {
-    pub const Count = struct { n: u32 };
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = .{ .n = 0} };
-    }
-
-    pub fn increment(self: *@This()) void {
-        self.count.n += 1;
-    }
-    
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-
-const MyCounterWrongFn = struct {
-    pub const Count = u32;
-
-    count: Count,
-
-    pub fn init() @This() {
-        return .{ .count = 0 };
-    }
-
-    pub fn increment(self: *@This(), amount: Count) void {
-        self.count += amount;
-    }
-    
-    pub fn read(self: *@This()) Count {
-        return self.count;
-    }
-};
-
-const MyCounterWithDimensions = struct {
-    pub const Count = u32;
-    pub const width = 640;
-    pub const height = 480;
-
-    count: Count,
 
     pub fn init() @This() {
         return .{ .count = 0 };
@@ -133,17 +46,23 @@ const MyCounterWithDimensions = struct {
     pub fn increment(self: *@This()) void {
         self.count += 1;
     }
-    
-    pub fn read(self: *@This()) Count {
+
+    pub fn read(self: *const @This()) u32 {
         return self.count;
     }
 };
+
+test "count with struct" {
+    var counter = MyCounter{ .count = 0 };
+    countToTen(&counter, .{});
+    try std.testing.expectEqual(@as(MyCounter.Count, 10), counter.read());
+}
 
 const MyCounterUnion = union(enum) {
-    pub const Count = u64;
-
     short: u32,
     long: u64,
+
+    pub const Count = u64;
 
     pub fn init() @This() {
         return .{ .long = 0 };
@@ -154,22 +73,28 @@ const MyCounterUnion = union(enum) {
             inline else => |*count| count.* += 1,
         }
     }
-    
-    pub fn read(self: *@This()) Count {
+
+    pub fn read(self: *const @This()) Count {
         switch (self.*) {
             inline else => |count| return count,
         }
     }
 };
 
-const MyCounterEnum = enum(u32) {
-    pub const Count = u32;
+test "count with union" {
+    var counter = MyCounterUnion{ .short = 0 };
+    countToTen(&counter, .{});
+    try std.testing.expectEqual(@as(MyCounterUnion.Count, 10), counter.read());
+}
 
+const MyCounterEnum = enum(u32) {
     red = 0,
     green,
     blue,
 
     _,
+
+    pub const Count = u32;
 
     pub fn init() @This() {
         return .red;
@@ -178,67 +103,75 @@ const MyCounterEnum = enum(u32) {
     pub fn increment(self: *@This()) void {
         self.* = @enumFromInt(@intFromEnum(self.*) + 1);
     }
-    
-    pub fn read(self: *@This()) Count {
+
+    pub fn read(self: *const @This()) Count {
         return @intFromEnum(self.*);
     }
 };
 
-pub fn countToTen(comptime Counter: type) void {
-    comptime where(Counter, implements(Incrementable));
-    var counter = Counter.init();
-    while (counter.read() < 10) {
-        counter.increment();
-    }
+test "count with enum" {
+    var counter = MyCounterEnum.red;
+    countToTen(&counter, .{});
+    try std.testing.expectEqual(@as(MyCounterEnum.Count, 10), counter.read());
 }
 
-pub fn computeArea(comptime T: type) comptime_int {
-    comptime where(T, implements(HasDimensions));
-    return T.width * T.height;
+pub fn HasIncrementable(comptime Type: type) ztrait.Interface {
+    return .{
+        .Requires = struct {
+            pub const Counter = implements(Incrementable);
+            pub const getCounter = fn (*Type) *Type.Counter;
+        },
+    };
 }
 
-pub fn computeAreaAndCount(comptime T: type) void {
-    comptime where(T, ztrait.implements(.{ Incrementable, HasDimensions }));
-
-    var counter = T.init();
-    while (counter.read() < T.width * T.height) {
-        counter.increment();
-    }
+pub fn countWithContainedCounter(
+    hldr_data: anytype,
+    comptime hldr_impl: Impl(PtrChild(@TypeOf(hldr_data)), HasIncrementable),
+) void {
+    const counter = hldr_impl.getCounter(hldr_data);
+    countToTen(counter, .{});
 }
 
-pub fn useHolderToCountToTen(comptime T: type) void {
-    comptime where(T, implements(HasIncrementable));
-    var counter = T.Counter.init();
-    while (counter.read() < 10) {
-        counter.increment();
-    }
-}
+const MyCounterHolder = struct {
+    counter: MyCounter = .{ .count = 0 },
 
-pub const CounterHolder = struct {
     pub const Counter = MyCounter;
+
+    pub fn getCounter(self: *@This()) *Counter {
+        return &self.counter;
+    }
 };
 
-pub const InvalidCounterHolder = struct {
-    pub const Counter = MyCounterMissingDecl;
-};
+test "count with contained counter" {
+    var holder = MyCounterHolder{};
+    countWithContainedCounter(&holder, .{});
+    try std.testing.expectEqual(
+        @as(MyCounter.Count, 10),
+        holder.counter.read(),
+    );
+}
 
-pub fn main() void {
-    // these should all silently work without errors
-    countToTen(MyCounter);
-    countToTen(MyCounterWithDimensions);
-    countToTen(MyCounterEnum);
-    countToTen(MyCounterUnion);
-    computeAreaAndCount(MyCounterWithDimensions);
-    useHolderToCountToTen(CounterHolder);
-    _ = computeArea(MyCounterWithDimensions);
+test "override member function" {
+    const Local = struct {
+        pub fn myIncrement(self: *MyCounter) void {
+            self.count = self.count * 2 + 1;
+        }
+    };
+    var counter = MyCounter{ .count = 0 };
+    countToTen(&counter, .{ .increment = Local.myIncrement });
+    try std.testing.expectEqual(@as(MyCounter.Count, 15), counter.read());
+}
 
-    // each of these should produce a compile error
-    //countToTen(MyCounterMissingType);
-    //countToTen(MyCounterMissingDecl);
-    //countToTen(MyCounterInvalidType);
-    //countToTen(MyCounterWrongFn);
-    //computeAreaAndCount(MyCounterEnum);
-    //useHolderToCountToTen(MyCounter);
-    //useHolderToCountToTen(InvalidCounterHolder);
-    //_ = computeArea(MyCounter);    
+pub fn countToTenAllAtOnce(
+    ctr_data: anytype,
+    comptime ctr_impl: Impl(PtrChild(@TypeOf(ctr_data)), Incrementable),
+) void {
+    const diff: i63 = 10 - ctr_impl.read(ctr_data);
+    ctr_impl.add(ctr_data, @intCast(diff));
+}
+
+test "count all at once" {
+    var counter = MyCounter{ .count = 0 };
+    countToTenAllAtOnce(&counter, .{});
+    try std.testing.expectEqual(@as(MyCounter.Count, 10), counter.read());
 }
