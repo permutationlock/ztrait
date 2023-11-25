@@ -76,10 +76,7 @@ pub const Constraint = union(enum) {
     }
 };
 
-fn checkInfoList(
-    comptime Type: type,
-    comptime exp_infos: []const TypeInfo
-) ?[]const u8 {
+fn checkInfoList(comptime Type: type, comptime exp_infos: []const TypeInfo) ?[]const u8 {
     const type_info = @typeInfo(Type);
     const type_id: TypeId = @enumFromInt(@intFromEnum(type_info));
 
@@ -92,20 +89,14 @@ fn checkInfoList(
     if (exp_infos.len == 0) {
         return null;
     } else if (exp_infos.len == 1) {
-        return std.fmt.comptimePrint(
-            "expected '{}', found '{}'",
-            .{ @as(TypeId, exp_infos[0]), type_id }
-        );
+        return std.fmt.comptimePrint("expected '{}', found '{}'", .{ @as(TypeId, exp_infos[0]), type_id });
     }
 
     const id_list: [exp_infos.len]TypeId = 0;
     for (exp_infos, &id_list) |info, *id| {
         id.* = @as(TypeId, info);
     }
-    return std.fmt.comptimePrint(
-        "expected one of '{}', found '{}'",
-        .{ id_list[0..], type_id }
-    );
+    return std.fmt.comptimePrint("expected one of '{}', found '{}'", .{ id_list[0..], type_id });
 }
 
 fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
@@ -122,11 +113,7 @@ fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
         if (maybe_exp_fld) |exp_fld| {
             const act_fld = @field(spec_info, fld_info.name);
             if (exp_fld != act_fld) {
-                return std.fmt.comptimePrint(
-                    "bad value for '@typeInfo({}).{s}.{s}': "
-                        ++ "expected '{}', found '{}'",
-                    .{ Type, type_name, fld_info.name, exp_fld, act_fld }
-                );
+                return std.fmt.comptimePrint("bad value for '@typeInfo({}).{s}.{s}': " ++ "expected '{}', found '{}'", .{ Type, type_name, fld_info.name, exp_fld, act_fld });
             }
         }
     }
@@ -134,10 +121,7 @@ fn checkInfo(comptime Type: type, comptime exp_info: TypeInfo) ?[]const u8 {
     return null;
 }
 
-fn checkTraitList(
-    comptime Type: type,
-    comptime list: []const TraitFn
-) ?[]const u8 {
+fn checkTraitList(comptime Type: type, comptime list: []const TraitFn) ?[]const u8 {
     for (list) |Trait| {
         if (checkTrait(Type, Trait)) |reason| {
             return reason;
@@ -154,17 +138,11 @@ fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
     const spec_info = @field(type_info, type_name);
 
     if (!@hasField(@TypeOf(spec_info), "decls")) {
-        return std.fmt.comptimePrint(
-            "type '{}' cannot implement traits: "
-                ++ "'@typeInfo({}).{s}' missing field 'decls'",
-            .{ Type, Type, type_name });
+        return std.fmt.comptimePrint("type '{}' cannot implement traits: " ++ "'@typeInfo({}).{s}' missing field 'decls'", .{ Type, Type, type_name });
     }
 
     const TraitStruct = Trait(Type);
-    const prelude = std.fmt.comptimePrint(
-        "trait '{}' failed",
-        .{TraitStruct}
-    );
+    const prelude = std.fmt.comptimePrint("trait '{}' failed", .{TraitStruct});
 
     inline for (@typeInfo(TraitStruct).Struct.decls) |decl| {
         if (!@hasDecl(Type, decl.name)) {
@@ -177,22 +155,15 @@ fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
 
         if (@TypeOf(FieldType) == Constraint) {
             if (FieldType.check(fld)) |reason| {
-                return std.fmt.comptimePrint(
-                    "{s}: decl '{s}': {s}",
-                    .{ prelude, decl.name, reason }
-                );
+                return std.fmt.comptimePrint("{s}: decl '{s}': {s}", .{ prelude, decl.name, reason });
             }
         } else if (@TypeOf(fld) != FieldType) {
-            return std.fmt.comptimePrint(
-                "{s}: decl '{s}': expected '{}', found '{}'",
-                .{ prelude, decl.name, FieldType, @TypeOf(fld) }
-            );
+            return std.fmt.comptimePrint("{s}: decl '{s}': expected '{}', found '{}'", .{ prelude, decl.name, FieldType, @TypeOf(fld) });
         }
     }
 
     return null;
 }
-
 
 // ----------------
 // Helper functions
@@ -204,11 +175,17 @@ fn checkTrait(comptime Type: type, comptime Trait: TraitFn) ?[]const u8 {
 //     - use `@import("mytrait.zig")` instead of `@import("trait")`
 
 pub fn isNumber() Constraint {
-    return hasOneOfTypeInfos(.{ .{ .Int = .{} }, .{ .Float = .{} }, });
+    return hasOneOfTypeInfos(.{
+        .{ .Int = .{} },
+        .{ .Float = .{} },
+    });
 }
 
 pub fn isContainer() Constraint {
-    return hasOneOfTypeInfos(.{ .{ .Struct = .{} }, .{ .Union = .{} }, });
+    return hasOneOfTypeInfos(.{
+        .{ .Struct = .{} },
+        .{ .Union = .{} },
+    });
 }
 
 pub fn isExternContainer() Constraint {
@@ -230,7 +207,7 @@ pub fn isTuple() Constraint {
 }
 
 pub fn PointerChild(comptime Type: type) type {
-    comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } })); 
+    comptime where(Type, hasTypeInfo(.{ .Pointer = .{ .size = .One } }));
     return @typeInfo(Type).Pointer.child;
 }
 
@@ -250,12 +227,8 @@ pub fn SliceChild(comptime Type: type) type {
         },
         else => {},
     }
-    @compileError(std.fmt.comptimePrint(
-        "type '{}' cannot coerce to a slice",
-        .{ Type }
-    ));
+    @compileError(std.fmt.comptimePrint("type '{}' cannot coerce to a slice", .{Type}));
 }
-
 
 // --------------------------
 // Function definition syntax
@@ -270,7 +243,6 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
     return ReturnType;
 }
 
-
 // *********************************
 // v Some @Type madness lies below v
 // *********************************
@@ -283,10 +255,7 @@ pub fn Returns(comptime ReturnType: type, comptime _: anytype) type {
 // type implements. This prevents code from accessing parts of the
 // type that are not exposed by the interface itself.
 
-pub fn interface(
-    comptime Type: type,
-    comptime traits: anytype
-) Interface(Type, traits) {
+pub fn interface(comptime Type: type, comptime traits: anytype) Interface(Type, traits) {
     comptime where(Type, implements(traits));
     return .{};
 }
@@ -311,8 +280,7 @@ pub fn Interface(comptime Type: type, comptime traits: anytype) type {
             fld.*.name = decl.name;
             fld.*.alignment = 0;
             fld.*.is_comptime = false;
-            fld.*.type = if (@TypeOf(trait_decl) == Constraint) type
-                else trait_decl;
+            fld.*.type = if (@TypeOf(trait_decl) == Constraint) type else trait_decl;
             fld.*.default_value = null;
             switch (@typeInfo(Type)) {
                 inline else => |info| if (@hasField(@TypeOf(info), "decls")) {
@@ -330,14 +298,16 @@ pub fn Interface(comptime Type: type, comptime traits: anytype) type {
             .fields = &fields,
             .decls = &[0]std.builtin.Type.Declaration{},
             .is_tuple = false,
-        }});
+        } });
     }
 }
 
 fn Join(comptime traits: []const TraitFn) TraitFn {
     if (traits.len == 0) {
         const S = struct {
-            pub fn f (comptime _: type) type { return struct {}; }
+            pub fn f(comptime _: type) type {
+                return struct {};
+            }
         };
         return S.f;
     }
@@ -347,15 +317,12 @@ fn Join(comptime traits: []const TraitFn) TraitFn {
     return JoinRecursive(traits[0], traits[1..]);
 }
 
-fn JoinRecursive(
-    comptime Trait: TraitFn,
-    comptime traits: []const TraitFn
-) TraitFn {
+fn JoinRecursive(comptime Trait: TraitFn, comptime traits: []const TraitFn) TraitFn {
     if (traits.len == 0) {
         return Trait;
     }
     const S = struct {
-        pub fn f (comptime Type: type) type {
+        pub fn f(comptime Type: type) type {
             return struct {
                 pub usingnamespace Trait(Type);
                 pub usingnamespace traits[0](Type);
@@ -364,7 +331,6 @@ fn JoinRecursive(
     };
     return JoinRecursive(S.f, traits[1..]);
 }
-
 
 // -----------------
 // Constructed types
@@ -409,9 +375,8 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
                     .decls = &[0]std.builtin.Type.Declaration{},
                     .is_tuple = struct_info.is_tuple,
                     .fields = sinit: {
-                        var og_sflds = struct_info.fields;
-                        var sflds: [og_sflds.len]std.builtin.Type.StructField
-                            = undefined;
+                        const og_sflds = struct_info.fields;
+                        var sflds: [og_sflds.len]std.builtin.Type.StructField = undefined;
                         var i: usize = 0;
                         inline for (og_sflds) |fld| {
                             if (std.mem.eql(u8, fld.name, "fields")) {
@@ -425,9 +390,7 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
                                     .child = fld.type,
                                 },
                             });
-                            sflds[i].default_value = @ptrCast(
-                                &@as(?fld.type, null)
-                            );
+                            sflds[i].default_value = @ptrCast(&@as(?fld.type, null));
                             i += 1;
                         }
                         break :sinit sflds[0..i];
@@ -443,4 +406,3 @@ pub const TypeInfo = @Type(std.builtin.Type{ .Union = .{
     },
     .decls = &[0]std.builtin.Type.Declaration{},
 } });
-

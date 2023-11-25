@@ -18,15 +18,16 @@ pub fn build(b: *Builder) !void {
         .source_file = .{ .path = "src/ztrait.zig" },
     });
 
+    const run_step = b.step("run", &.{});
+
     inline for (paths) |example| {
         const exe = b.addExecutable(.{
             .name = example.name,
             .root_source_file = .{ .path = example.path },
             .target = target,
-            .optimize = optimize
+            .optimize = optimize,
         });
         exe.addModule("ztrait", ztrait);
-        const run_step = b.step(example.name, &.{});
         run_step.dependOn(&b.addRunArtifact(exe).step);
     }
 }
