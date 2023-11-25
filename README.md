@@ -1,19 +1,19 @@
 # Zig Type Traits
 
+*Disclaimer: This was an exploratory project that I no longer believe
+should be used for practical purposes. Everything I leared in this
+project was refined into the
+[zimpl library](https://github.com/permutationlock/zimpl)
+which I will continue to maintain.*
+
 An attempt at implementing something along the lines of Rust type traits in Zig.
 Using this library you can define traits and compile-time verify that types
 implement them.
 
-The primary goal of the library is to explore
-formal ways to document requirements for generic types in Zig. If you are
-interested in a practical library for everyday use, I recommend my
-abridged [zimpl library](https://github.com/permutationlock/zimpl).
-
-I also wrote
+I wrote
 [an article](https://musing.permutationlock.com/posts/blog-working_with_anytype.html)
-about working with `anytyp` that covers some of my thought process while
-developing this library. It also contains a slightly more "real world"
-example of how traits and interfaces can be used.
+about working with `anytype` which reflects on
+developing this library.
 
 ### Related Links
 
